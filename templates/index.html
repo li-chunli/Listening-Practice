@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IELTS Word Listening Practice</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 720px;
+  }
+
+  /* ---- Shared ---- */
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 12px;
+  }
+  .card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 10px;
+  }
+
+  .scroll-list {
+    max-height: 50vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .scroll-list::-webkit-scrollbar { width: 5px; }
+  .scroll-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #4f46e5; }
+  .btn-danger  { background: #ef4444; color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: #dc2626; }
+  .btn-outline { background: transparent; color: #94a3b8; border: 1px solid #475569; }
+  .btn-outline:hover:not(:disabled) { color: #e2e8f0; border-color: #94a3b8; }
+  .btn-sm { padding: 3px 10px; font-size: 0.75rem; border-radius: 6px; }
+  .btn-lg { padding: 14px 40px; font-size: 1rem; border-radius: 12px; }
+  .btn-full { width: 100%; }
+
+  hr { border: none; border-top: 1px solid #334155; margin: 20px 0; }
+
+  /* ---- Manage view ---- */
+  .header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+  .header p {
+    font-size: 0.875rem;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  /* File list */
+  .file-list { display: flex; flex-direction: column; gap: 4px; }
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    font-size: 0.85rem;
+  }
+  .file-row:hover { border-color: #6366f1; }
+  .file-row.selected { border-color: #6366f1; background: rgba(99,102,241,0.08); }
+  .file-row input[type=radio] { accent-color: #6366f1; width: 18px; height: 18px; cursor: pointer; }
+  .file-row .file-name { flex: 1; font-weight: 500; }
+  .file-row .file-count { color: #94a3b8; font-size: 0.85rem; white-space: nowrap; }
+
+  .empty-msg { text-align: center; color: #64748b; padding: 20px; font-size: 0.9rem; }
+
+  /* Upload */
+  .upload-row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  .upload-row input[type=file] { display: none; }
+  .upload-row .file-label {
+    flex: 1;
+    padding: 9px 14px;
+    background: #0f172a;
+    border: 1px dashed #475569;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .upload-row .file-label:hover { border-color: #6366f1; color: #c7d2f7; }
+
+  /* Settings */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .setting label {
+    display: block;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .setting input, .setting select {
+    width: 100%;
+    padding: 10px 14px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+  }
+  .setting input:focus, .setting select:focus { border-color: #6366f1; }
+
+  .start-section { text-align: center; margin-top: 8px; }
+
+  /* Practice mode styles */
+  .practice-nav {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .practice-nav .nav-btn {
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .nav-prev { background: #334155; color: #e2e8f0; }
+  .nav-prev:hover:not(:disabled) { background: #475569; }
+  .nav-next { background: #6366f1; color: #fff; }
+  .nav-next:hover:not(:disabled) { background: #4f46e5; }
+  .practice-nav .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .practice-nav .nav-pos { color: #94a3b8; font-size: 0.85rem; min-width: 60px; text-align: center; }
+
+  .practice-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .btn-hint { background: #334155; color: #94a3b8; }
+  .btn-hint:hover { background: #475569; }
+  .btn-hint.on { background: #f59e0b; color: #000; }
+  .btn-speak { background: #334155; color: #94a3b8; }
+  .btn-speak:hover { background: #475569; }
+  .btn-speak.on { background: #f59e0b; color: #000; }
+  .btn-icon {
+    padding: 6px 10px;
+    min-width: 42px;
+  }
+  .btn-icon svg { display: block; }
+
+  .word-reveal {
+    text-align: center;
+    font-size: 2.3rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 0.05em;
+    height: 70px;
+    line-height: 70px;
+    visibility: hidden;
+    flex-shrink: 0;
+  }
+  .word-reveal.show {
+    visibility: visible;
+  }
+
+  /* Mode badge */
+  .mode-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 10px;
+    margin-left: 8px;
+  }
+  .mode-exam { background: rgba(99,102,241,0.2); color: #818cf8; }
+  .mode-practice { background: rgba(5,150,105,0.2); color: #34d399; }
+
+  /* ---- Training view ---- */
+  .train-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .train-top .info {
+    font-size: 1.05rem;
+    color: #94a3b8;
+    text-align: right;
+  }
+
+  .accent-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .accent-btn {
+    padding: 6px 14px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .accent-btn:hover { border-color: #6366f1; color: #e2e8f0; }
+  .accent-btn.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .timer-wrapper {
+    height: 6px;
+    background: #1e293b;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .timer-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+  }
+  .timer-bar.warning { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .timer-bar.danger  { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+  .word-card {
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 24px;
+    padding: 29px 38px;
+    text-align: center;
+    transition: border-color 0.3s;
+    margin-bottom: 16px;
+    height: 460px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 17px;
+  }
+  .word-card.correct { border-color: #22c55e; box-shadow: 0 0 32px rgba(34,197,94,0.15); }
+  .word-card.wrong   { border-color: #ef4444; box-shadow: 0 0 32px rgba(239,68,68,0.15); }
+
+  .accent-badge {
+    display: inline-block;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 6px 16px;
+    border-radius: 24px;
+    flex-shrink: 0;
+  }
+  .badge-uk { background: rgba(99,102,241,0.2); color: #818cf8; }
+  .badge-us { background: rgba(245,158,11,0.2); color: #fbbf24; }
+  .badge-au { background: rgba(5,150,105,0.2); color: #34d399; }
+  .badge-in { background: rgba(244,114,182,0.2); color: #f472b6; }
+  .badge-ca { background: rgba(239,68,68,0.2); color: #f87171; }
+  .badge-ie { background: rgba(52,211,153,0.2); color: #6ee7b7; }
+
+  .ipa-text {
+    font-size: 3.1rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #f1f5f9;
+    line-height: 1.3;
+    height: 4.2rem;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .def-text {
+    font-size: 1.44rem;
+    color: #a5b4fc;
+    line-height: 1.5;
+    padding: 14px 19px;
+    background: rgba(99,102,241,0.08);
+    border-radius: 12px;
+    white-space: pre-line;
+    max-height: 187px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .feedback {
+    font-size: 1.44rem;
+    font-weight: 600;
+    height: 41px;
+    flex-shrink: 0;
+  }
+  .feedback.correct-msg { color: #22c55e; }
+  .feedback.wrong-msg   { color: #ef4444; }
+
+  .input-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .input-group input {
+    flex: 1;
+    padding: 20px 26px;
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 16px;
+    color: #f1f5f9;
+    font-size: 1.7rem;
+    font-family: inherit;
+    outline: none;
+    letter-spacing: 0.02em;
+  }
+  .input-group input:focus { border-color: #6366f1; }
+  .input-group input.correct-input { border-color: #22c55e; }
+  .input-group input.wrong-input   { border-color: #ef4444; }
+  .input-group input:disabled { opacity: 0.5; }
+
+  .scoreboard {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .stat {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 14px 22px;
+    text-align: center;
+    min-width: 85px;
+  }
+  .stat .number { font-size: 1.6rem; font-weight: 700; }
+  .stat .label  { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat.correct-stat .number   { color: #22c55e; }
+  .stat.wrong-stat .number     { color: #ef4444; }
+  .stat.remaining-stat .number { color: #818cf8; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #22c55e;
+    color: #000;
+    font-weight: 600;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #ef4444; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ============================================================ -->
+  <!-- MANAGE VIEW                                                   -->
+  <!-- ============================================================ -->
+  <div id="manageView">
+    <div class="header">
+      <h1>IELTS 单词听音训练</h1>
+      <p>管理词库 &amp; 开始训练</p>
+    </div>
+
+    <!-- Word Lists -->
+    <div class="card">
+      <h2>词库列表</h2>
+      <div class="file-list" id="fileList">
+        <div class="empty-msg">加载中...</div>
+      </div>
+      <div class="upload-row">
+        <input type="file" id="uploadInput" accept=".txt" onchange="handleUpload(this)">
+        <label class="file-label" for="uploadInput">+ 上传 .txt 词库文件</label>
+      </div>
+    </div>
+
+    <!-- Settings + Start -->
+    <div class="card">
+      <h2>训练设置</h2>
+      <div class="settings-grid">
+        <div class="setting">
+          <label>单词间隔（秒）</label>
+          <input type="number" id="cfgInterval" value="5" min="3" max="60" step="1">
+        </div>
+        <div class="setting">
+          <label>朗读次数</label>
+          <select id="cfgSpeakCount">
+            <option value="1">1 次</option>
+            <option value="2" selected>2 次</option>
+            <option value="3">3 次</option>
+            <option value="4">4 次</option>
+            <option value="5">5 次</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>朗读速度</label>
+          <select id="cfgRate">
+            <option value="0.6">0.6x 慢速</option>
+            <option value="0.8">0.8x</option>
+            <option value="1.0" selected>1.0x 正常</option>
+            <option value="1.2">1.2x</option>
+            <option value="1.5">1.5x 快速</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>答对 ≥ N 次后跳过（0=不跳过）</label>
+          <div style="display:flex;gap:8px;">
+            <input type="number" id="cfgMastery" value="0" min="0" max="99" step="1" style="flex:1;">
+            <button class="btn btn-outline btn-sm" onclick="resetMastery()" style="white-space:nowrap;">清除记录</button>
+          </div>
+        </div>
+      </div>
+      <hr>
+      <div style="display:flex;gap:12px;">
+        <button class="btn btn-primary btn-lg" style="flex:1;" onclick="startTraining('exam')">考试模式</button>
+        <button class="btn btn-lg" style="flex:1;background:#059669;color:#fff;" onclick="startTraining('practice')">练习模式</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TRAINING VIEW                                                 -->
+  <!-- ============================================================ -->
+  <div id="trainView" style="display:none;">
+
+    <!-- Top bar -->
+    <div class="train-top">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-outline" style="padding:6px 16px;font-size:0.9rem;" onclick="backToManage()">返回</button>
+        <span class="info" id="prevWordLabel" style="text-align:left;font-weight:600;"></span>
+      </div>
+      <span class="info" id="trainInfo"></span>
+    </div>
+
+    <!-- Accent selector -->
+    <div class="accent-toggle" style="gap:6px;">
+      <button class="accent-btn active" data-accent="uk" onclick="setAccent('uk')">英音</button>
+      <button class="accent-btn" data-accent="us" onclick="setAccent('us')">美音</button>
+      <button class="accent-btn" data-accent="au" onclick="setAccent('au')">澳音</button>
+      <button class="accent-btn" data-accent="in" onclick="setAccent('in')">印音</button>
+      <button class="accent-btn" data-accent="ca" onclick="setAccent('ca')">加音</button>
+      <button class="accent-btn" data-accent="ie" onclick="setAccent('ie')">爱音</button>
+      <select id="voiceGenderSelect" onchange="setVoiceGender(this.value)" style="margin-left:12px;padding:6px 10px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:0.8rem;font-family:inherit;cursor:pointer;">
+        <option value="google" selected>Google</option>
+        <option value="edge-f">Edge 女声</option>
+        <option value="edge-m">Edge 男声</option>
+        <option value="baidu">Baidu</option>
+      </select>
+    </div>
+
+    <!-- === EXAM MODE CONTROLS === -->
+    <div id="examControls">
+      <div class="controls">
+        <button class="btn btn-primary" id="startBtn" onclick="toggleRunning()">开始</button>
+        <button class="btn" id="replayBtn" onclick="replayWord()" disabled title="重播">重播</button>
+      </div>
+      <div class="timer-wrapper">
+        <div class="timer-bar" id="timerBar" style="width:100%;"></div>
+      </div>
+      <div style="text-align:center;font-size:0.85rem;color:#94a3b8;margin-top:4px;" id="timerLabel"></div>
+    </div>
+
+    <!-- === PRACTICE MODE NAV === -->
+    <div id="practiceNav" style="display:none;" class="practice-nav">
+      <button class="nav-btn nav-prev" id="prevBtn" onclick="practicePrev()">◀ PREV</button>
+      <span class="nav-pos" id="navPos" onclick="openJump()" title="点击跳转" style="cursor:pointer;">1 / 1</span>
+      <input id="navJumpInput" type="number" min="1"
+        style="display:none;width:64px;padding:2px 6px;background:#0f172a;border:1px solid #6366f1;border-radius:6px;color:#e2e8f0;font-size:0.85rem;text-align:center;"
+        onblur="closeJump()" onkeydown="handleJumpKey(event)">
+      <span id="drillTimer" style="display:none;color:#f59e0b;font-weight:700;font-size:1.3rem;min-width:50px;text-align:center;"></span>
+      <button class="nav-btn nav-next" id="nextBtn" onclick="practiceNext()">NEXT ▶</button>
+    </div>
+
+    <!-- Word card -->
+    <div class="word-card" id="wordCard">
+
+      <div class="ipa-text" id="ipaText">—</div>
+      <div class="def-text" id="defText">—</div>
+      <!-- Practice mode: word reveal -->
+      <div class="word-reveal" id="wordReveal"></div>
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <!-- === PRACTICE MODE ACTIONS === -->
+    <div id="practiceActions" style="display:none;" class="practice-actions">
+      <button class="btn btn-icon" id="shuffleBtn" onclick="shuffleWords()" title="随机乱序" style="background:#334155;color:#94a3b8;">
+        <img src="/ico/02-随机播放.png" width="20" height="20" style="display:block;">
+      </button>
+      <button class="btn btn-icon" id="drillBtn" onclick="toggleDrill()" title="强化训练" style="background:#334155;color:#94a3b8;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="6"/>
+          <circle cx="12" cy="12" r="2"/>
+        </svg>
+      </button>
+      <button class="btn btn-hint btn-icon" id="hintBtn" onclick="toggleHint()" onmouseenter="showHint()" onmouseleave="hideHint()" title="提示">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18h6"/>
+          <path d="M10 22h4"/>
+          <path d="M12 2a7 7 0 0 0-7 7c0 2.4.8 4.5 2 6.2V17a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1.8c1.2-1.7 2-3.8 2-6.2a7 7 0 0 0-7-7z"/>
+        </svg>
+      </button>
+      <button class="btn btn-speak btn-icon" id="speakBtn" onclick="speakOnce()" onmouseenter="speakOnce()" onmouseleave="stopSpeech()" title="发音">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+      </button>
+      <button class="btn btn-icon" id="loopSpeakBtn" onclick="toggleLoopSpeak()" title="循环发音" style="background:#fff;color:#1e293b;">
+        <img id="loopImg" src="/ico/01-默认图标.png" width="24" height="24" style="display:block;">
+        <img id="stopImg" src="/ico/02-播放中.gif" width="24" height="24" style="display:none;">
+      </button>
+    </div>
+
+    <!-- === EXAM MODE INPUT === -->
+    <div id="examInput" class="input-group">
+      <input type="text" id="wordInput" placeholder="在此输入单词..." disabled autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn btn-primary" id="submitBtn" onclick="checkAnswer()" disabled>确认</button>
+    </div>
+
+    <!-- Score -->
+    <div class="scoreboard" id="scoreboard">
+      <div class="stat correct-stat">
+        <div class="number" id="correctCount">0</div>
+        <div class="label">正确</div>
+      </div>
+      <div class="stat wrong-stat">
+        <div class="number" id="wrongCount">0</div>
+        <div class="label">未答</div>
+      </div>
+      <div class="stat remaining-stat">
+        <div class="number" id="remainingCount">0</div>
+        <div class="label">剩余</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ===================== STATE =====================
+let words = [];
+let currentIndex = 0;
+let correct = 0;
+let wrong = 0;
+let running = false;
+let countdownInterval = null;
+let synth = window.speechSynthesis;
+let currentWord = null;
+let answered = false;
+let wordResults = [];
+let accent = "uk";
+let accentLang = { uk: "en-GB", us: "en-US", au: "en-AU", in: "en-IN", ca: "en-CA", ie: "en-IE" };
+let voiceGender = "google";
+let currentAudio = null;
+let baiduLang = { uk: "uk", us: "en", au: "au", in: "en", ca: "en", ie: "en" };
+
+function isWebSpeech() {
+  return voiceGender !== "google" && voiceGender !== "baidu" &&
+         voiceGender !== "edge-f" && voiceGender !== "edge-m";
+}
+
+function getTtsAudioUrl(word) {
+  if (voiceGender === "google") {
+    return "/api/tts/google?word=" + encodeURIComponent(word) + "&lang=" + encodeURIComponent(accentLang[accent]);
+  }
+  if (voiceGender === "baidu") {
+    return "/api/tts/baidu?word=" + encodeURIComponent(word) + "&lang=" + encodeURIComponent(baiduLang[accent] || "en");
+  }
+  // edge-f / edge-m
+  var gender = voiceGender === "edge-m" ? "male" : "female";
+  return "/api/tts/edge?word=" + encodeURIComponent(word) + "&lang=" + encodeURIComponent(accentLang[accent]) + "&gender=" + gender;
+}
+
+function stopAudio() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.onended = null;
+    currentAudio.onerror = null;
+    currentAudio = null;
+  }
+}
+
+let speakTimer = null;
+let speakCount = 2;
+let intervalSec = 5;
+let speakRate = 1.0;
+let trainMode = "exam"; // 'exam' | 'practice'
+let hintOn = false;
+let hintLocked = false;
+let prevWord = null;
+let drillOn = false;
+let wordStartTime = 0;
+let drillQueue = [];
+let drillTimerInterval = null;
+let shuffled = false;
+let originalWords = [];
+let originalIndex = 0;
+let shuffleSeen = [];
+
+// ===================== TOAST =====================
+function showToast(msg, isError) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast" + (isError ? " error" : "") + " show";
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => { t.className = "toast"; }, 2000);
+}
+
+// ===================== MANAGE: file list =====================
+let files = [];
+let selectedFile = "";
+
+async function loadFileList() {
+  try {
+    const res = await fetch("/api/files");
+    files = await res.json();
+    if (files.length > 0 && !selectedFile) {
+      selectedFile = files[0].name;
+    }
+    renderFileList();
+  } catch (e) {
+    document.getElementById("fileList").innerHTML =
+      '<div class="empty-msg">加载失败</div>';
+  }
+}
+
+function renderFileList() {
+  const el = document.getElementById("fileList");
+  if (files.length === 0) {
+    el.innerHTML = '<div class="empty-msg">暂无词库，请上传</div>';
+    return;
+  }
+  let html = "";
+  files.forEach((f, i) => {
+    const sel = f.name === selectedFile ? " selected" : "";
+    html += '<div class="file-row' + sel + '" onclick="selectFile(\'' +
+      f.name.replace(/'/g, "\\'") + '\')">' +
+      '<input type="radio" name="wordfile"' + (sel ? " checked" : "") + '>' +
+      '<span class="file-name">' + f.name + '</span>' +
+      '<span class="file-count">' + f.word_count + ' 个单词</span>' +
+      '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFile(\'' +
+      f.name.replace(/'/g, "\\'") + '\')">删除</button>' +
+      '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function selectFile(name) {
+  selectedFile = name;
+  renderFileList();
+}
+
+async function handleUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append("file", file);
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+    const data = await res.json();
+    selectedFile = data.name;
+    await loadFileList();
+    showToast("已上传：" + data.name + "（" + data.word_count + " 个单词）");
+  } catch (e) {
+    showToast(e.message || "上传失败", true);
+  }
+  input.value = "";
+}
+
+async function deleteFile(name) {
+  if (!confirm("确认删除 " + name + "？")) return;
+  try {
+    await fetch("/api/files/" + encodeURIComponent(name), { method: "DELETE" });
+    if (selectedFile === name) selectedFile = "";
+    await loadFileList();
+    showToast("已删除：" + name);
+  } catch (e) {
+    showToast("删除失败", true);
+  }
+}
+
+// ===================== START TRAINING =====================
+async function resetMastery() {
+  if (!confirm("确认清除所有掌握记录？此操作不可撤销。")) return;
+  try {
+    await fetch("/api/mastery", { method: "DELETE" });
+    showToast("已清除掌握记录");
+  } catch (e) {
+    showToast("清除失败", true);
+  }
+}
+
+async function startTraining(mode) {
+  if (!selectedFile) {
+    showToast("请先选择一个词库", true);
+    return;
+  }
+  trainMode = mode;
+  hintOn = false;
+  hintLocked = false;
+
+  // Read settings
+  intervalSec = parseInt(document.getElementById("cfgInterval").value) || 5;
+  speakCount = parseInt(document.getElementById("cfgSpeakCount").value) || 2;
+  speakRate = parseFloat(document.getElementById("cfgRate").value) || 1.0;
+  const masteryThreshold = parseInt(document.getElementById("cfgMastery").value) || 0;
+
+  // Load words (no mastery filter in practice mode)
+  try {
+    let url = "/api/words?file=" + encodeURIComponent(selectedFile);
+    if (masteryThreshold > 0 && mode === "exam") url += "&mastery=" + masteryThreshold;
+    const res = await fetch(url);
+    words = await res.json();
+  } catch (e) {
+    showToast("加载单词失败", true);
+    return;
+  }
+  if (words.length === 0) {
+    showToast("没有可用的单词（可能全部已掌握或词库为空）", true);
+    return;
+  }
+
+  currentIndex = 0;
+  correct = 0;
+  wrong = 0;
+  wordResults = new Array(words.length).fill(null);
+  currentWord = null;
+  answered = true;
+  prevWord = null;
+  document.getElementById("prevWordLabel").textContent = "";
+
+  // Switch view
+  document.getElementById("manageView").style.display = "none";
+  document.getElementById("trainView").style.display = "";
+  let modeLabel = mode === "exam" ? "考试模式" : "练习模式";
+  let infoStr = selectedFile + "  |  " + modeLabel;
+  if (mode === "exam") {
+    infoStr += "  |  " + intervalSec + "秒  |  朗读" + speakCount + "次";
+    if (masteryThreshold > 0) infoStr += "  |  掌握<" + masteryThreshold;
+  }
+  document.getElementById("trainInfo").textContent = infoStr;
+
+  // Show/hide mode-specific elements
+  var isExam = (mode === "exam");
+  document.getElementById("examControls").style.display = isExam ? "" : "none";
+  document.getElementById("examInput").style.display = "";
+  document.getElementById("submitBtn").style.display = isExam ? "" : "none";
+  document.getElementById("scoreboard").style.display = isExam ? "" : "none";
+  document.getElementById("practiceNav").style.display = isExam ? "none" : "";
+  document.getElementById("practiceActions").style.display = isExam ? "none" : "";
+  document.getElementById("wordReveal").classList.remove("show");
+
+  // Reset UI
+  updateScore();
+  document.getElementById("remainingCount").textContent = words.length;
+  document.getElementById("ipaText").textContent = "—";
+  document.getElementById("defText").textContent = "—";
+  document.getElementById("feedback").textContent = "";
+  document.getElementById("feedback").className = "feedback";
+  document.getElementById("wordCard").classList.remove("correct", "wrong");
+  document.getElementById("wordInput").value = "";
+  document.getElementById("timerBar").style.width = "100%";
+  document.getElementById("timerBar").classList.remove("warning", "danger");
+  document.getElementById("timerLabel").textContent = "";
+  document.getElementById("hintBtn").classList.remove("on");
+  var sb = document.getElementById("shuffleBtn");
+  if (sb) { sb.style.background = "#334155"; sb.style.color = "#94a3b8";  }
+  shuffled = false;
+  originalWords = [];
+  originalIndex = 0;
+  shuffleSeen = [];
+
+  if (mode === "exam") {
+    // Warm up speech engine (Chrome autoplay policy requires user gesture)
+    var dummy = new SpeechSynthesisUtterance("");
+    synth.speak(dummy);
+    synth.cancel();
+    running = true;
+    document.getElementById("startBtn").textContent = "停止";
+    document.getElementById("startBtn").classList.add("running");
+    showWord();
+  } else {
+    running = false;
+    showPracticeWord();
+  }
+}
+
+function backToManage() {
+  stopSpeech();
+  stopLoopSpeak();
+  if (drillTimerInterval) { clearInterval(drillTimerInterval); drillTimerInterval = null; }
+  if (trainMode === "exam") stopSession(); else running = false;
+  document.getElementById("trainView").style.display = "none";
+  document.getElementById("manageView").style.display = "";
+  document.getElementById("practiceNav").style.display = "none";
+  document.getElementById("practiceActions").style.display = "none";
+  document.getElementById("examControls").style.display = "";
+  document.getElementById("examInput").style.display = "";
+  document.getElementById("submitBtn").style.display = "";
+  document.getElementById("scoreboard").style.display = "";
+  document.getElementById("wordInput").disabled = true;
+  document.getElementById("wordReveal").classList.remove("show");
+  drillOn = false;
+  drillQueue = [];
+  var db = document.getElementById("drillBtn");
+  if (db) { db.classList.remove("on"); db.style.background = "#334155"; db.style.color = "#94a3b8"; }
+  var sb = document.getElementById("shuffleBtn");
+  if (sb) { sb.style.background = "#334155"; sb.style.color = "#94a3b8";  }
+  shuffled = false;
+  originalWords = [];
+  originalIndex = 0;
+  shuffleSeen = [];
+  loadFileList();
+}
+
+// ===================== PRACTICE MODE =====================
+function showPracticeWord() {
+  if (currentIndex >= words.length) currentIndex = 0;
+  if (currentIndex < 0) currentIndex = words.length - 1;
+
+  // Show previous word
+  if (prevWord) {
+    document.getElementById("prevWordLabel").textContent = prevWord.word;
+  }
+  prevWord = words[currentIndex];
+  currentWord = words[currentIndex];
+  hintOn = false;
+  hintLocked = false;
+  wordStartTime = Date.now();
+  // Drill timer
+  if (drillTimerInterval) clearInterval(drillTimerInterval);
+  if (drillOn) {
+    document.getElementById("drillTimer").style.display = "";
+    document.getElementById("drillTimer").textContent = "0s";
+    drillTimerInterval = setInterval(function() {
+      var t = (Date.now() - wordStartTime) / 1000;
+      document.getElementById("drillTimer").textContent = Math.floor(t) + "s";
+    }, 200);
+  } else {
+    document.getElementById("drillTimer").style.display = "none";
+  }
+
+  document.getElementById("ipaText").textContent =
+    accent === "uk" ? currentWord.ipa_uk : currentWord.ipa_us;
+  document.getElementById("defText").textContent = currentWord.def || "";
+  var reveal = document.getElementById("wordReveal");
+  reveal.classList.remove("show");
+  reveal.textContent = currentWord.word;
+  document.getElementById("feedback").textContent = "";
+  document.getElementById("feedback").className = "feedback";
+  document.getElementById("wordCard").classList.remove("correct", "wrong");
+  document.getElementById("wordInput").value = "";
+  document.getElementById("wordInput").disabled = false;
+  document.getElementById("wordInput").focus();
+  document.getElementById("submitBtn").disabled = true;
+  document.getElementById("hintBtn").classList.remove("on");
+  document.getElementById("navPos").textContent = (currentIndex + 1) + " / " + words.length;
+  var nxt = document.getElementById("nextBtn");
+  nxt.textContent = "NEXT ▶";
+  nxt.onclick = practiceNext;
+  document.getElementById("prevBtn").disabled = (currentIndex <= 0);
+  nxt.disabled = (currentIndex >= words.length - 1);
+
+
+  stopSpeech();
+  var wasLoop = loopSpeaking;
+  if (wasLoop) stopLoopSpeak();
+  if (wasLoop) {
+    loopSpeaking = true;
+    document.getElementById("loopImg").style.display = "none";
+    document.getElementById("stopImg").style.display = "block";
+    if (isWebSpeech()) synth.cancel();
+    stopAudio();
+    setTimeout(function() { doLoopSpeak(); }, 100);
+  } else {
+    speakOnce();
+  }
+}
+
+function practiceNext() {
+  if (shuffled) {
+    // Only unseen tail words available
+    var unseen = [];
+    for (var i = originalIndex; i < words.length; i++) {
+      if (shuffleSeen.indexOf(i) < 0) unseen.push(i);
+    }
+    if (unseen.length === 0) {
+      cancelShuffle();
+      document.getElementById("feedback").textContent = "随机练习已完成";
+      document.getElementById("feedback").className = "feedback correct-msg";
+      document.getElementById("navPos").textContent = "Done";
+      document.getElementById("nextBtn").textContent = "重来";
+      document.getElementById("nextBtn").disabled = false;
+      document.getElementById("nextBtn").onclick = function() {
+        document.getElementById("nextBtn").textContent = "NEXT ▶";
+        document.getElementById("nextBtn").onclick = practiceNext;
+        document.getElementById("feedback").textContent = "";
+        document.getElementById("feedback").className = "feedback";
+        currentIndex = 0;
+        originalIndex = 0;
+        showPracticeWord();
+      };
+      return;
+    }
+    var next = unseen[Math.floor(Math.random() * unseen.length)];
+    currentIndex = next;
+    shuffleSeen.push(next);
+    showPracticeWord();
+  } else {
+    if (currentIndex < words.length - 1) {
+      currentIndex++;
+      originalIndex = currentIndex;
+      showPracticeWord();
+    } else {
+      document.getElementById("feedback").textContent = "练习完成";
+      document.getElementById("feedback").className = "feedback correct-msg";
+      document.getElementById("navPos").textContent = "Done";
+      var nxt = document.getElementById("nextBtn");
+      nxt.textContent = "重来";
+      nxt.disabled = false;
+      nxt.onclick = function() {
+        nxt.textContent = "NEXT ▶";
+        nxt.onclick = practiceNext;
+        document.getElementById("feedback").textContent = "";
+        document.getElementById("feedback").className = "feedback";
+        currentIndex = 0;
+        originalIndex = 0;
+        showPracticeWord();
+      };
+    }
+  }
+}
+
+function openJump() {
+  var inp = document.getElementById("navJumpInput");
+  var pos = document.getElementById("navPos");
+  inp.max = words.length;
+  inp.value = currentIndex + 1;
+  pos.style.display = "none";
+  inp.style.display = "inline-block";
+  inp.focus();
+  inp.select();
+}
+
+function closeJump() {
+  document.getElementById("navJumpInput").style.display = "none";
+  document.getElementById("navPos").style.display = "";
+}
+
+function handleJumpKey(e) {
+  if (e.key === "Enter") {
+    var n = parseInt(document.getElementById("navJumpInput").value);
+    if (!isNaN(n) && n >= 1 && n <= words.length) {
+      currentIndex = n - 1;
+      originalIndex = currentIndex;
+      showPracticeWord();
+    }
+    closeJump();
+  } else if (e.key === "Escape") {
+    closeJump();
+  }
+}
+
+function practicePrev() {
+  if (shuffled) {
+    if (shuffleSeen.length > 1) {
+      // Go back to previously seen word
+      shuffleSeen.pop();
+      currentIndex = shuffleSeen[shuffleSeen.length - 1];
+      showPracticeWord();
+    }
+  } else {
+    if (currentIndex > 0) {
+      currentIndex--;
+      originalIndex = currentIndex;
+      showPracticeWord();
+    }
+  }
+}
+
+function shuffleWords() {
+  var btn = document.getElementById("shuffleBtn");
+  if (shuffled) {
+    cancelShuffle();
+    showToast("已恢复原序");
+  } else {
+    // Shuffle: only shuffle remaining words (current index onwards)
+    if (!originalWords.length) originalWords = words.slice();
+    var curWord = currentWord;
+    originalIndex = currentIndex;
+    // Split: [0..currentIndex] keep in place, [currentIndex..end] shuffle
+    var head = words.slice(0, currentIndex);
+    var tail = words.slice(currentIndex);
+    shuffle(tail);
+    words = head.concat(tail);
+    currentIndex = words.findIndex(function(w) { return w.word === curWord.word; });
+    if (currentIndex < 0) currentIndex = 0;
+    shuffleSeen = [currentIndex];
+    shuffled = true;
+    btn.style.background = "#f59e0b";
+    btn.style.color = "#000";
+    showPracticeWord();
+    showToast("已随机乱序");
+  }
+}
+
+function cancelShuffle() {
+  words = originalWords.slice();
+  currentIndex = originalIndex;
+  shuffled = false;
+  shuffleSeen = [];
+  var btn = document.getElementById("shuffleBtn");
+  if (btn) { btn.style.background = "#334155"; btn.style.color = "#94a3b8"; }
+  var nxt = document.getElementById("nextBtn");
+  nxt.textContent = "NEXT ▶";
+  nxt.onclick = practiceNext;
+  showPracticeWord();
+}
+
+function toggleDrill() {
+  var btn = document.getElementById("drillBtn");
+  if (!drillOn) {
+    drillOn = true;
+    btn.classList.add("on");
+    btn.style.background = "#f59e0b";
+    btn.style.color = "#000";
+    // Start timer immediately for current word
+    wordStartTime = Date.now();
+    document.getElementById("drillTimer").style.display = "";
+    if (drillTimerInterval) clearInterval(drillTimerInterval);
+    drillTimerInterval = setInterval(function() {
+      var t = (Date.now() - wordStartTime) / 1000;
+      document.getElementById("drillTimer").textContent = Math.floor(t) + "s";
+    }, 200);
+    showToast("强化训练已开启：超过5秒的单词会重复练习，直到5秒内拼出");
+  } else {
+    drillOn = false;
+    btn.classList.remove("on");
+    btn.style.background = "#334155";
+    btn.style.color = "#94a3b8";
+    if (drillTimerInterval) { clearInterval(drillTimerInterval); drillTimerInterval = null; }
+    document.getElementById("drillTimer").style.display = "none";
+    showToast("强化训练已关闭");
+  }
+}
+
+function toggleHint() {
+  hintLocked = !hintLocked;
+  if (hintLocked) {
+    showHint();
+  } else {
+    hideHint();
+  }
+}
+
+function showHint() {
+  hintOn = true;
+  document.getElementById("wordReveal").classList.add("show");
+  document.getElementById("hintBtn").classList.add("on");
+}
+
+function hideHint() {
+  if (hintLocked) return;
+  hintOn = false;
+  document.getElementById("wordReveal").classList.remove("show");
+  document.getElementById("hintBtn").classList.remove("on");
+}
+
+function speakOnce() {
+  if (!currentWord) return;
+  stopSpeech();
+  stopLoopSpeak();
+  if (isWebSpeech()) {
+    if (!synth) return;
+    const utter = new SpeechSynthesisUtterance(currentWord.word);
+    utter.lang = accentLang[accent];
+    utter.rate = speakRate;
+    utter.pitch = 1.0;
+    const voices = synth.getVoices();
+    const pref = pickVoice(voices, accentLang[accent]);
+    if (pref) utter.voice = pref;
+    synth.speak(utter);
+  } else {
+    stopAudio();
+    const audio = new Audio(getTtsAudioUrl(currentWord.word));
+    audio.onerror = function() { showToast("TTS 播放失败", true); };
+    currentAudio = audio;
+    audio.play();
+  }
+}
+
+let loopSpeaking = false;
+let loopUtter = null;
+
+function toggleLoopSpeak() {
+  if (loopSpeaking) {
+    stopLoopSpeak();
+    return;
+  }
+  if (!currentWord) return;
+  stopAudio();
+  if (isWebSpeech() && synth) synth.cancel();
+  if (speakTimer) clearTimeout(speakTimer);
+  loopSpeaking = true;
+  document.getElementById("loopImg").style.display = "none";
+  document.getElementById("stopImg").style.display = "block";
+  doLoopSpeak();
+}
+
+function doLoopSpeak() {
+  if (!loopSpeaking || !currentWord) return;
+  if (isWebSpeech()) {
+    if (!synth) return;
+    loopUtter = new SpeechSynthesisUtterance(currentWord.word);
+    loopUtter.lang = accentLang[accent];
+    loopUtter.rate = speakRate;
+    loopUtter.pitch = 1.0;
+    const voices = synth.getVoices();
+    const pref = pickVoice(voices, accentLang[accent]);
+    if (pref) loopUtter.voice = pref;
+    loopUtter.onend = function() { if (loopSpeaking) setTimeout(function() { doLoopSpeak(); }, 3000); };
+    synth.speak(loopUtter);
+  } else {
+    stopAudio();
+    var audio = new Audio(getTtsAudioUrl(currentWord.word));
+    audio.onended = function() { if (loopSpeaking) setTimeout(function() { doLoopSpeak(); }, 3000); };
+    audio.onerror = function() {
+      showToast("TTS 播放失败", true);
+      if (loopSpeaking) setTimeout(function() { doLoopSpeak(); }, 3000);
+    };
+    currentAudio = audio;
+    audio.play();
+  }
+}
+
+function stopLoopSpeak() {
+  loopSpeaking = false;
+  synth.cancel();
+  stopAudio();
+  document.getElementById("loopImg").style.display = "block";
+  document.getElementById("stopImg").style.display = "none";
+}
+
+// ===================== ACCENT =====================
+var accentNames = { uk: "英式音标", us: "美式音标", au: "英式音标", in: "英式音标", ca: "英式音标", ie: "英式音标" };
+
+function setVoiceGender(val) {
+  voiceGender = val;
+  if (!currentWord) return;
+  stopAudio();
+  if (trainMode === "practice") {
+    if (loopSpeaking) {
+      if (isWebSpeech()) synth.cancel();
+      setTimeout(function() { doLoopSpeak(); }, 50);
+    } else {
+      if (isWebSpeech()) synth.cancel();
+      speakOnce();
+    }
+  } else if (running && !answered) {
+    speakCurrentWord();
+  }
+}
+
+var maleNames = /\b(david|mark|george|guy|daniel|richard|james|peter|paul|mike|john|tom|will|henry|charles|ravi|sean|male)\b/i;
+var femaleNames = /\b(zira|hazel|susan|catherine|linda|maria|helena|laura|sarah|mary|anna|emma|olivia|sophia|heera|female)\b/i;
+
+function pickVoice(voices, targetLang) {
+  var ranked = voices.filter(function(v) { return v.lang.startsWith("en"); });
+  ranked.sort(function(a, b) {
+    function score(v) {
+      if (v.lang === targetLang) return 3;
+      if (v.lang.startsWith(targetLang)) return 2;
+      return 1;
+    }
+    return score(b) - score(a);
+  });
+  // Filter to only voices matching the target language
+  var sameLang = ranked.filter(function(v) { return v.lang.startsWith(targetLang); });
+  var pool = sameLang.length > 0 ? sameLang : []; // empty = no matching locale, rely on utter.lang
+  var chosen;
+  if (voiceGender === "male") {
+    var male = pool.filter(function(v) { return maleNames.test(v.name); });
+    if (male.length > 0) chosen = male[0];
+  } else if (voiceGender === "female") {
+    var female = pool.filter(function(v) { return femaleNames.test(v.name); });
+    if (female.length > 0) chosen = female[0];
+  }
+  // If gender specified but no match found, return null (let utter.lang drive instead of wrong gender)
+  if (!chosen && voiceGender !== "any") chosen = null;
+  if (!chosen && voiceGender === "any") chosen = pool[0] || null;
+  console.log("pickVoice:", targetLang, voiceGender, chosen ? chosen.name + " (" + chosen.lang + ")" : "NONE (use utter.lang)");
+  return chosen;
+}
+
+function setAccent(acc) {
+  accent = acc;
+  document.querySelectorAll(".accent-btn").forEach(function(b) {
+    b.classList.toggle("active", b.dataset.accent === acc);
+  });
+
+  if (currentWord) {
+    document.getElementById("ipaText").textContent =
+      (accent === "us") ? currentWord.ipa_us : currentWord.ipa_uk;
+    if (trainMode === "exam" && running && !answered) speakCurrentWord();
+    if (trainMode === "practice") {
+      stopAudio();
+      if (loopSpeaking) {
+        if (isWebSpeech()) synth.cancel();
+        setTimeout(function() { doLoopSpeak(); }, 50);
+      } else {
+        if (isWebSpeech()) synth.cancel();
+        speakOnce();
+      }
+    }
+  }
+}
+
+// ===================== SPEECH =====================
+function speakCurrentWord() {
+  if (!currentWord) return;
+  stopSpeech();
+  if (speakTimer) clearTimeout(speakTimer);
+
+  var times = 0;
+  function doSpeak() {
+    if (!running || answered) return;
+    if (times >= speakCount) return;
+    times++;
+    if (isWebSpeech()) {
+      if (!synth) return;
+      var utter = new SpeechSynthesisUtterance(currentWord.word);
+      utter.lang = accentLang[accent];
+      utter.rate = speakRate;
+      utter.pitch = 1.0;
+      var voices = synth.getVoices();
+      var pref = pickVoice(voices, accentLang[accent]);
+      if (pref) utter.voice = pref;
+      utter.onend = function() {
+        if (times < speakCount && running && !answered) {
+          speakTimer = setTimeout(doSpeak, 1200);
+        }
+      };
+      synth.speak(utter);
+    } else {
+      stopAudio();
+      var audio = new Audio(getTtsAudioUrl(currentWord.word));
+      audio.onended = function() {
+        if (times < speakCount && running && !answered) {
+          speakTimer = setTimeout(doSpeak, 1200);
+        }
+      };
+      audio.onerror = function() {
+        if (times < speakCount && running && !answered) {
+          speakTimer = setTimeout(doSpeak, 1200);
+        }
+      };
+      currentAudio = audio;
+      audio.play();
+    }
+  }
+  doSpeak();
+}
+
+function stopSpeech() {
+  synth.cancel();
+  stopAudio();
+  if (speakTimer) clearTimeout(speakTimer);
+}
+
+speechSynthesis.getVoices();
+speechSynthesis.onvoiceschanged = () => { speechSynthesis.getVoices(); };
+
+function replayWord() {
+  if (!running || answered || !currentWord) return;
+  stopSpeech();
+  speakCurrentWord();
+}
+
+// ===================== TIMER =====================
+function startTimer() {
+  answered = false;
+  const bar = document.getElementById("timerBar");
+  bar.style.width = "100%";
+  bar.classList.remove("warning", "danger");
+
+  const startTime = Date.now();
+  const totalMs = intervalSec * 1000;
+
+  countdownInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const left = Math.max(0, (totalMs - elapsed) / 1000);
+    const pct = (left / intervalSec) * 100;
+    bar.style.width = pct + "%";
+
+    if (left <= intervalSec * 0.3) {
+      bar.classList.add("danger");
+      bar.classList.remove("warning");
+    } else if (left <= intervalSec * 0.5) {
+      bar.classList.add("warning");
+    }
+
+    document.getElementById("timerLabel").textContent = Math.ceil(left) + "s";
+
+    if (left <= 0) {
+      clearInterval(countdownInterval);
+      onTimeout();
+    }
+  }, 50);
+}
+
+function stopTimer() {
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  document.getElementById("timerLabel").textContent = "";
+}
+
+// ===================== WORD DISPLAY =====================
+function showWord() {
+  if (!running || currentIndex >= words.length) { finishSession(); return; }
+
+  if (prevWord) {
+    document.getElementById("prevWordLabel").textContent = prevWord.word;
+  }
+  prevWord = words[currentIndex];
+  currentWord = words[currentIndex];
+  document.getElementById("ipaText").textContent =
+    accent === "uk" ? currentWord.ipa_uk : currentWord.ipa_us;
+  document.getElementById("defText").textContent = currentWord.def || "";
+  document.getElementById("wordInput").value = "";
+  document.getElementById("wordInput").classList.remove("correct-input", "wrong-input");
+  document.getElementById("wordCard").classList.remove("correct", "wrong");
+  document.getElementById("feedback").textContent = "";
+  document.getElementById("feedback").className = "feedback";
+  document.getElementById("wordInput").disabled = false;
+  document.getElementById("submitBtn").disabled = false;
+  document.getElementById("replayBtn").disabled = false;
+  document.getElementById("wordInput").focus();
+
+  document.getElementById("remainingCount").textContent = words.length - currentIndex;
+
+  startTimer();
+  speakCurrentWord();
+}
+
+// ===================== ANSWER =====================
+function checkAnswer() {
+  if (!running || answered || !currentWord) return;
+
+  const userAnswer = document.getElementById("wordInput").value.trim().toLowerCase();
+  const correctWord = currentWord.word.toLowerCase();
+
+  answered = true;
+  stopTimer();
+  stopSpeech();
+  document.getElementById("wordInput").disabled = true;
+  document.getElementById("submitBtn").disabled = true;
+  document.getElementById("replayBtn").disabled = true;
+
+  const card = document.getElementById("wordCard");
+  const input = document.getElementById("wordInput");
+  const fb = document.getElementById("feedback");
+
+  if (userAnswer === correctWord) {
+    correct++;
+    wordResults[currentIndex] = "correct";
+    card.classList.add("correct");
+    input.classList.add("correct-input");
+    fb.textContent = "✓ 正确！ — " + currentWord.word;
+    fb.className = "feedback correct-msg";
+    // Record mastery
+    fetch("/api/mastery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word: currentWord.word })
+    }).catch(() => {});
+  } else {
+    wrong++;
+    wordResults[currentIndex] = "wrong";
+    card.classList.add("wrong");
+    input.classList.add("wrong-input");
+    fb.textContent = "✗ 正确单词：" + currentWord.word;
+    fb.className = "feedback wrong-msg";
+  }
+
+  updateScore();
+  currentIndex++;
+
+  setTimeout(() => { if (running) showWord(); }, 1200);
+}
+
+function onTimeout() {
+  if (answered) return;
+  answered = true;
+  wrong++;
+  wordResults[currentIndex] = "wrong";
+  stopSpeech();
+  document.getElementById("wordInput").disabled = true;
+  document.getElementById("submitBtn").disabled = true;
+  document.getElementById("replayBtn").disabled = true;
+  document.getElementById("wordCard").classList.add("wrong");
+  document.getElementById("feedback").textContent = "⏱ 时间到！ — " + (currentWord?currentWord.word:"");
+  document.getElementById("feedback").className = "feedback wrong-msg";
+  updateScore();
+  currentIndex++;
+
+  setTimeout(() => { if (running) showWord(); }, 1500);
+}
+
+// ===================== ENTER KEY =====================
+document.getElementById("wordInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (trainMode === "practice") { showHint(); }
+    else { checkAnswer(); }
+  }
+  if (trainMode === "practice" && e.key === "Backspace") {
+    e.preventDefault();
+    this.value = "";
+  }
+});
+
+document.getElementById("wordInput").addEventListener("keyup", function(e) {
+  if (trainMode === "practice" && e.key === "Enter") {
+    hideHint();
+  }
+});
+
+document.addEventListener("keydown", function(e) {
+  if (trainMode !== "practice") return;
+  if (document.activeElement === document.getElementById("wordInput")) return;
+  if (document.activeElement === document.getElementById("navJumpInput")) return;
+  if (e.key === "ArrowLeft") { e.preventDefault(); practicePrev(); return; }
+  if (e.key === "ArrowRight") { e.preventDefault(); practiceNext(); return; }
+  // Any other key: focus input
+  if (e.key.length === 1 || e.key === "Backspace") {
+    document.getElementById("wordInput").focus();
+  }
+});
+
+document.getElementById("wordInput").addEventListener("input", function() {
+  if (trainMode !== "practice" || !currentWord) return;
+  if (this.value.trim().toLowerCase() === currentWord.word.toLowerCase()) {
+    document.getElementById("wordCard").classList.add("correct");
+    document.getElementById("wordInput").classList.add("correct-input");
+    this.disabled = true;
+    if (drillTimerInterval) { clearInterval(drillTimerInterval); drillTimerInterval = null; }
+    // Drill mode: check elapsed time
+    if (drillOn) {
+      var elapsed = (Date.now() - wordStartTime) / 1000;
+      if (elapsed > 5) {
+        document.getElementById("feedback").textContent = Math.floor(elapsed) + "s — 再来一次";
+        document.getElementById("feedback").className = "feedback";
+        this.disabled = true;
+        setTimeout(function() {
+          document.getElementById("wordInput").classList.remove("correct-input");
+          document.getElementById("wordCard").classList.remove("correct");
+          document.getElementById("feedback").textContent = "";
+          document.getElementById("feedback").className = "feedback";
+          hintOn = false;
+          hintLocked = false;
+          wordStartTime = Date.now();
+          if (drillTimerInterval) clearInterval(drillTimerInterval);
+          document.getElementById("drillTimer").textContent = "0s";
+          drillTimerInterval = setInterval(function() {
+            document.getElementById("drillTimer").textContent = Math.floor((Date.now() - wordStartTime) / 1000) + "s";
+          }, 200);
+          document.getElementById("wordInput").value = "";
+          document.getElementById("wordInput").disabled = false;
+          document.getElementById("wordInput").focus();
+          document.getElementById("wordCard").classList.remove("correct");
+          document.getElementById("wordReveal").classList.remove("show");
+          document.getElementById("hintBtn").classList.remove("on");
+          stopSpeech();
+          if (loopSpeaking) { doLoopSpeak(); } else { speakOnce(); }
+        }, 800);
+        return;
+      }
+      document.getElementById("feedback").textContent = "✓ " + Math.floor(elapsed) + "s";
+      document.getElementById("feedback").className = "feedback correct-msg";
+    }
+    // Delay briefly to show timing feedback
+    var adv = function() { practiceNext(); };
+    if (drillOn) { setTimeout(adv, 800); }
+    else { adv(); }
+  }
+});
+
+// ===================== SCORE & DOTS =====================
+function updateScore() {
+  document.getElementById("correctCount").textContent = correct;
+  document.getElementById("wrongCount").textContent = wrong;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// ===================== SESSION CONTROL =====================
+function toggleRunning() {
+  if (!running) {
+    if (words.length === 0) return;
+    running = true;
+    currentIndex = 0;
+    correct = 0;
+    wrong = 0;
+    wordResults = new Array(words.length).fill(null);
+    updateScore();
+    document.getElementById("remainingCount").textContent = words.length;
+    const btn = document.getElementById("startBtn");
+    btn.textContent = "Stop";
+    btn.classList.add("running");
+    document.getElementById("ipaText").textContent = "—";
+    document.getElementById("defText").textContent = "—";
+    document.getElementById("feedback").textContent = "";
+    document.getElementById("wordCard").classList.remove("correct", "wrong");
+    document.getElementById("wordInput").value = "";
+  
+    showWord();
+  } else {
+    stopSession();
+  }
+}
+
+function stopSession() {
+  running = false;
+  stopTimer();
+  stopSpeech();
+  const btn = document.getElementById("startBtn");
+  btn.textContent = "开始";
+  btn.classList.remove("running");
+  document.getElementById("wordInput").disabled = true;
+  document.getElementById("submitBtn").disabled = true;
+  document.getElementById("replayBtn").disabled = true;
+  document.getElementById("ipaText").textContent = "—";
+  document.getElementById("defText").textContent = "—";
+  document.getElementById("feedback").textContent = "训练已暂停";
+  document.getElementById("feedback").className = "feedback";
+  document.getElementById("wordCard").classList.remove("correct", "wrong");
+  document.getElementById("wordInput").classList.remove("correct-input", "wrong-input");
+  document.getElementById("timerBar").style.width = "100%";
+  document.getElementById("timerBar").classList.remove("warning", "danger");
+  document.getElementById("timerLabel").textContent = "";
+  currentWord = null;
+  answered = true;
+}
+
+function finishSession() {
+  stopTimer();
+  stopSpeech();
+  running = false;
+  const btn = document.getElementById("startBtn");
+  btn.textContent = "开始";
+  btn.classList.remove("running");
+  document.getElementById("wordInput").disabled = true;
+  document.getElementById("submitBtn").disabled = true;
+  document.getElementById("replayBtn").disabled = true;
+  document.getElementById("ipaText").textContent = "完成！";
+  document.getElementById("defText").textContent = "";
+  document.getElementById("feedback").textContent = "得分：" + correct + " / " + (correct + wrong);
+  document.getElementById("feedback").className = "feedback correct-msg";
+  document.getElementById("wordCard").classList.add("correct");
+  document.getElementById("timerBar").style.width = "100%";
+  document.getElementById("timerBar").classList.remove("warning", "danger");
+  document.getElementById("timerLabel").textContent = "";
+  currentWord = null;
+  answered = true;
+  document.getElementById("remainingCount").textContent = "0";
+
+}
+
+// ===================== INIT =====================
+loadFileList();
+</script>
+</body>
+</html>

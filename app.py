@@ -1,0 +1,413 @@
+import asyncio
+import json
+import os
+import sqlite3
+from functools import lru_cache
+from urllib.request import Request, urlopen
+from urllib.parse import quote
+import edge_tts
+from flask import Flask, render_template, jsonify, request, send_from_directory
+
+app = Flask(__name__)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+WORDS_DIR = os.path.join(BASE_DIR, "word")
+MASTERY_FILE = os.path.join(BASE_DIR, "mastery.json")
+DICT_DB = os.path.join(BASE_DIR, "dict", "stardict.db")
+
+
+# ---- Mastery helpers ----
+def load_mastery():
+    if not os.path.exists(MASTERY_FILE):
+        return {}
+    with open(MASTERY_FILE) as f:
+        return json.load(f)
+
+
+def save_mastery(data):
+    with open(MASTERY_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+# ---- Dictionary lookup ----
+class DictDB:
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self._conn = None
+
+    @property
+    def conn(self):
+        if self._conn is None:
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+        return self._conn
+
+    @lru_cache(maxsize=2000)
+    def lookup(self, word):
+        """Look up a word, return (ipa_uk, ipa_us, definition) or None."""
+        cur = self.conn.cursor()
+        # Try exact match first
+        for variant in (word, word.lower(), word.capitalize()):
+            cur.execute(
+                "SELECT word, phonetic, translation, definition FROM stardict WHERE word=?",
+                (variant,),
+            )
+            row = cur.fetchone()
+            if row:
+                if row["phonetic"]:
+                    return self._build_result(row)
+                # Found the word but no phonetic — try base forms
+                base = self._find_base_with_phonetic(cur, word)
+                if base:
+                    return self._build_result(base, override_trans=row)
+
+                return self._build_result(row)
+
+        # Not found at all — try stemming
+        for base_form in self._stem(word):
+            for variant in (base_form, base_form.lower(), base_form.capitalize()):
+                cur.execute(
+                    "SELECT word, phonetic, translation, definition FROM stardict WHERE word=?",
+                    (variant,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return self._build_result(row)
+            else:
+                continue
+            break
+
+        return None
+
+    def _find_base_with_phonetic(self, cur, word):
+        """Try to find a base form of the word that has phonetics."""
+        for base_form in self._stem(word):
+            for variant in (base_form, base_form.lower(), base_form.capitalize()):
+                cur.execute(
+                    "SELECT word, phonetic, translation, definition FROM stardict WHERE word=? AND phonetic IS NOT NULL AND phonetic!=''",
+                    (variant,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return row
+            else:
+                continue
+            break
+        return None
+
+    def _build_result(self, row, override_trans=None):
+        ipa = self._clean_phonetic(row["phonetic"] or "")
+        trans = (override_trans["translation"] or "") if override_trans else (row["translation"] or "")
+        defn = (override_trans["definition"] or "") if override_trans else (row["definition"] or "")
+
+        chinese = trans.split("\n")[0].strip() if trans else ""
+        english = defn.split("\n")[0].strip() if defn else ""
+
+        if chinese and english:
+            combined = chinese + "\n" + english
+        elif chinese:
+            combined = chinese
+        elif english:
+            combined = english
+        else:
+            combined = ""
+
+        return (ipa, ipa, combined)
+
+    @staticmethod
+    def _stem(word):
+        """Generate possible base forms of an inflected word."""
+        w = word.lower()
+        candidates = []
+        # Plurals / 3rd person
+        if w.endswith("ies") and len(w) > 4:
+            candidates.append(w[:-3] + "y")
+        if w.endswith("ves") and len(w) > 4:
+            candidates.append(w[:-3] + "f")
+            candidates.append(w[:-3] + "fe")
+        if w.endswith("es") and len(w) > 3:
+            candidates.append(w[:-2])  # dishes -> dish
+            candidates.append(w[:-1])  # dishes -> dishe (unlikely but harmless)
+        if w.endswith("s") and not w.endswith("ss") and len(w) > 2:
+            candidates.append(w[:-1])
+        # Past tense / participles
+        if w.endswith("ied") and len(w) > 4:
+            candidates.append(w[:-3] + "y")
+        if w.endswith("ed") and len(w) > 3:
+            candidates.append(w[:-2])
+            candidates.append(w[:-1])  # baked -> bake
+        if w.endswith("ing") and len(w) > 4:
+            candidates.append(w[:-3])
+            candidates.append(w[:-3] + "e")  # making -> make
+        # Comparative / superlative
+        if w.endswith("ier") and len(w) > 4:
+            candidates.append(w[:-3] + "y")
+        if w.endswith("iest") and len(w) > 5:
+            candidates.append(w[:-4] + "y")
+        if w.endswith("er") and len(w) > 3:
+            candidates.append(w[:-2])
+            candidates.append(w[:-1])
+        if w.endswith("est") and len(w) > 4:
+            candidates.append(w[:-3])
+            candidates.append(w[:-2])
+        # Adverbs
+        if w.endswith("ly") and len(w) > 3:
+            candidates.append(w[:-2])
+        return candidates
+
+    @staticmethod
+    def _clean_phonetic(phonetic):
+        """Normalize ECDICT phonetic to a cleaner display format."""
+        if not phonetic:
+            return "/?/"
+        # Remove leading dot (syllable boundary marker)
+        p = phonetic.strip()
+        while p.startswith("."):
+            p = p[1:]
+        # Wrap in / /
+        if not p.startswith("/"):
+            p = "/" + p
+        if not p.endswith("/"):
+            p = p + "/"
+        return p
+
+
+# Init dictionary
+dictdb = None
+if os.path.exists(DICT_DB):
+    dictdb = DictDB(DICT_DB)
+
+
+# ---- Word parsing ----
+def parse_line(line):
+    """
+    Parse a word line. Formats:
+      word
+      word|ipa_uk|ipa_us|definition   (overrides dictionary)
+    """
+    line = line.strip()
+    if not line:
+        return None
+    parts = line.split("|")
+    word = parts[0].strip()
+    if not word:
+        return None
+
+    ipa_uk = "/?/"
+    ipa_us = "/?/"
+    definition = ""
+
+    if len(parts) >= 4:
+        # Inline metadata overrides everything
+        ipa_uk = parts[1].strip() or "/?/"
+        ipa_us = parts[2].strip() or "/?/"
+        definition = parts[3].strip()
+    else:
+        # Look up from local dictionary
+        if dictdb:
+            result = dictdb.lookup(word)
+            if result:
+                ipa_uk, ipa_us, definition = result
+
+    return {
+        "word": word,
+        "ipa_uk": ipa_uk,
+        "ipa_us": ipa_us,
+        "def": definition,
+    }
+
+
+def load_words_from_dir(directory):
+    all_words = []
+    if not os.path.isdir(directory):
+        return all_words
+    for f in sorted(os.listdir(directory)):
+        if f.endswith(".txt"):
+            filepath = os.path.join(directory, f)
+            with open(filepath) as fh:
+                for line in fh:
+                    item = parse_line(line)
+                    if item:
+                        all_words.append(item)
+    return all_words
+
+
+# ---- Routes ----
+@app.route("/ico/<path:filename>")
+def ico_file(filename):
+    return send_from_directory(os.path.join(BASE_DIR, "ico"), filename)
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/dict/status")
+def dict_status():
+    return jsonify({
+        "available": dictdb is not None,
+        "db_path": DICT_DB,
+    })
+
+
+@app.route("/api/files")
+def list_files():
+    files = []
+    if not os.path.isdir(WORDS_DIR):
+        return jsonify([])
+    for f in sorted(os.listdir(WORDS_DIR)):
+        if f.endswith(".txt"):
+            filepath = os.path.join(WORDS_DIR, f)
+            with open(filepath) as fh:
+                count = sum(1 for line in fh if parse_line(line))
+            files.append({"name": f, "word_count": count})
+    return jsonify(files)
+
+
+@app.route("/api/words")
+def get_words():
+    filename = request.args.get("file", "")
+    mastery_threshold = int(request.args.get("mastery", "0") or "0")
+
+    if filename:
+        filepath = os.path.join(WORDS_DIR, filename)
+        if not os.path.exists(filepath):
+            return jsonify({"error": "File not found"}), 404
+        source = []
+        with open(filepath) as fh:
+            for line in fh:
+                item = parse_line(line)
+                if item:
+                    source.append(item)
+    else:
+        source = load_words_from_dir(WORDS_DIR)
+
+    if mastery_threshold > 0:
+        mastery = load_mastery()
+        source = [w for w in source if mastery.get(w["word"].lower(), 0) < mastery_threshold]
+
+    return jsonify(source)
+
+
+@app.route("/api/upload", methods=["POST"])
+def upload_file():
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    f = request.files["file"]
+    if f.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    if not f.filename.endswith(".txt"):
+        return jsonify({"error": "Only .txt files allowed"}), 400
+    os.makedirs(WORDS_DIR, exist_ok=True)
+    filepath = os.path.join(WORDS_DIR, f.filename)
+    f.save(filepath)
+    with open(filepath) as fh:
+        count = sum(1 for line in fh if parse_line(line))
+    return jsonify({"name": f.filename, "word_count": count})
+
+
+@app.route("/api/files/<filename>", methods=["DELETE"])
+def delete_file(filename):
+    filepath = os.path.join(WORDS_DIR, filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": "File not found"}), 404
+    os.remove(filepath)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/mastery", methods=["GET", "POST", "DELETE"])
+def mastery():
+    if request.method == "GET":
+        return jsonify(load_mastery())
+
+    elif request.method == "POST":
+        data = request.get_json(silent=True)
+        if not data or "word" not in data:
+            return jsonify({"error": "Missing 'word' field"}), 400
+        word = data["word"].lower().strip()
+        if not word:
+            return jsonify({"error": "Empty word"}), 400
+        mastery = load_mastery()
+        mastery[word] = mastery.get(word, 0) + 1
+        save_mastery(mastery)
+        return jsonify({"word": word, "count": mastery[word]})
+
+    elif request.method == "DELETE":
+        save_mastery({})
+        return jsonify({"ok": True})
+
+
+@app.route("/api/tts/google")
+def tts_google():
+    word = request.args.get("word", "")
+    lang = request.args.get("lang", "en")
+    if not word:
+        return jsonify({"error": "Missing word"}), 400
+    try:
+        url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + quote(word)
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        resp = urlopen(req, timeout=10)
+        return app.response_class(resp.read(), mimetype="audio/mpeg")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tts/baidu")
+def tts_baidu():
+    word = request.args.get("word", "")
+    lang = request.args.get("lang", "en")
+    if not word:
+        return jsonify({"error": "Missing word"}), 400
+    try:
+        url = "https://fanyi.baidu.com/gettts?lan=" + lang + "&text=" + quote(word) + "&spd=3"
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        resp = urlopen(req, timeout=10)
+        return app.response_class(resp.read(), mimetype="audio/mpeg")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+_EDGE_VOICES = {
+    ("en-GB", "female"): "en-GB-SoniaNeural",
+    ("en-GB", "male"):   "en-GB-RyanNeural",
+    ("en-US", "female"): "en-US-JennyNeural",
+    ("en-US", "male"):   "en-US-GuyNeural",
+    ("en-AU", "female"): "en-AU-NatashaNeural",
+    ("en-AU", "male"):   "en-AU-WilliamNeural",
+    ("en-IN", "female"): "en-IN-NeerjaNeural",
+    ("en-IN", "male"):   "en-IN-PrabhatNeural",
+    ("en-CA", "female"): "en-CA-ClaraNeural",
+    ("en-CA", "male"):   "en-CA-LiamNeural",
+    ("en-IE", "female"): "en-IE-EmilyNeural",
+    ("en-IE", "male"):   "en-IE-ConnorNeural",
+}
+
+
+@app.route("/api/tts/edge")
+def tts_edge():
+    word = request.args.get("word", "")
+    lang = request.args.get("lang", "en-GB")
+    gender = request.args.get("gender", "female")
+    if not word:
+        return jsonify({"error": "Missing word"}), 400
+    voice = _EDGE_VOICES.get((lang, gender), "en-GB-SoniaNeural")
+
+    async def _generate():
+        communicate = edge_tts.Communicate(word, voice)
+        buf = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                buf += chunk["data"]
+        return buf
+
+    try:
+        audio = asyncio.run(_generate())
+        return app.response_class(audio, mimetype="audio/mpeg")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    print(f"Dict DB: {'found' if os.path.exists(DICT_DB) else 'NOT FOUND'} at {DICT_DB}")
+    app.run(host="0.0.0.0", port=8080, debug=True)
