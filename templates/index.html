@@ -143,7 +143,7 @@
   /* Settings */
   .settings-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 16px;
   }
   .setting label {
@@ -453,9 +453,19 @@
       </div>
     </div>
 
-    <!-- Settings + Start -->
-    <div class="card">
-      <h2>训练设置</h2>
+    <!-- Mode buttons -->
+    <div class="card" style="padding:14px;">
+      <div style="display:flex;gap:12px;">
+        <button class="btn btn-primary btn-lg" style="flex:1;" onclick="openExamModal()">考试模式</button>
+        <button class="btn btn-lg" style="flex:1;background:#059669;color:#fff;" onclick="startTraining('practice')">练习模式</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exam settings modal -->
+  <div id="examModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;">
+    <div style="background:#1e293b;border:1px solid #475569;border-radius:16px;padding:24px 28px;width:360px;max-width:92vw;">
+      <h3 style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:18px;">考试模式设置</h3>
       <div class="settings-grid">
         <div class="setting">
           <label>单词间隔（秒）</label>
@@ -482,10 +492,9 @@
           </select>
         </div>
       </div>
-      <hr>
-      <div style="display:flex;gap:12px;">
-        <button class="btn btn-primary btn-lg" style="flex:1;" onclick="startTraining('exam')">考试模式</button>
-        <button class="btn btn-lg" style="flex:1;background:#059669;color:#fff;" onclick="startTraining('practice')">练习模式</button>
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button class="btn btn-outline" style="flex:1;" onclick="closeExamModal()">取消</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="closeExamModal();startTraining('exam')">开始</button>
       </div>
     </div>
   </div>
@@ -886,6 +895,18 @@ async function deleteFile(name) {
     showToast("删除失败", true);
   }
 }
+
+// ===================== EXAM MODAL =====================
+function openExamModal() {
+  var m = document.getElementById("examModal");
+  m.style.display = "flex";
+}
+function closeExamModal() {
+  document.getElementById("examModal").style.display = "none";
+}
+document.getElementById("examModal").addEventListener("click", function(e) {
+  if (e.target === this) closeExamModal();
+});
 
 // ===================== START TRAINING =====================
 async function startTraining(mode) {
