@@ -355,6 +355,15 @@ def upload_file():
     return jsonify({"name": f.filename, "word_count": count})
 
 
+@app.route("/api/download/<filename>")
+def download_file(filename):
+    try:
+        directory = get_dir_path(request.args.get("dir", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return send_from_directory(directory, filename, as_attachment=True)
+
+
 @app.route("/api/files/<filename>", methods=["DELETE"])
 def delete_file(filename):
     try:

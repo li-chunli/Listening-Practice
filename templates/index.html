@@ -853,6 +853,9 @@ function renderFileList() {
         '<span class="file-count">' + f.word_count + ' 个单词</span>' +
         '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFile(\'' +
         f.name.replace(/'/g, "\\'") + '\')">删除</button>' +
+        '<a class="btn btn-sm" style="text-decoration:none;background:#2563eb;color:#fff;" href="/api/download/' + encodeURIComponent(f.name) +
+        (currentDir ? '?dir=' + encodeURIComponent(currentDir) : '') +
+        '" download="' + f.name + '" onclick="event.stopPropagation()">下载</a>' +
         '</div>';
     });
   }
