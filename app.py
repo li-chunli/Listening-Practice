@@ -1,6 +1,8 @@
 import asyncio
 import json
 import os
+import re
+import shutil
 import sqlite3
 from functools import lru_cache
 from urllib.request import Request, urlopen
@@ -232,6 +234,20 @@ def load_words_from_dir(directory):
     return all_words
 
 
+# ---- Directory helpers ----
+def get_dir_path(dirname):
+    """Return absolute path for a word sub-directory; empty string = WORDS_DIR root."""
+    if not dirname:
+        return WORDS_DIR
+    safe = re.sub(r'[\\/\x00-\x1f\x7f]', '', dirname).replace('..', '').strip()
+    if not safe:
+        raise ValueError("无效目录名")
+    path = os.path.normpath(os.path.join(WORDS_DIR, safe))
+    if not path.startswith(os.path.abspath(WORDS_DIR) + os.sep):
+        raise ValueError("路径非法")
+    return path
+
+
 # ---- Routes ----
 @app.route("/ico/<path:filename>")
 def ico_file(filename):
@@ -251,14 +267,57 @@ def dict_status():
     })
 
 
+@app.route("/api/dirs")
+def list_dirs():
+    dirs = [{"name": "", "label": "默认"}]
+    if os.path.isdir(WORDS_DIR):
+        for item in sorted(os.listdir(WORDS_DIR)):
+            full = os.path.join(WORDS_DIR, item)
+            if os.path.isdir(full):
+                cnt = sum(1 for x in os.listdir(full) if x.endswith(".txt"))
+                dirs.append({"name": item, "label": item, "file_count": cnt})
+    return jsonify(dirs)
+
+
+@app.route("/api/dirs", methods=["POST"])
+def create_dir():
+    data = request.get_json(silent=True)
+    if not data or not data.get("name"):
+        return jsonify({"error": "缺少名称"}), 400
+    try:
+        path = get_dir_path(data["name"])
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if os.path.exists(path):
+        return jsonify({"error": "目录已存在"}), 409
+    os.makedirs(path)
+    return jsonify({"name": os.path.basename(path)})
+
+
+@app.route("/api/dirs/<dirname>", methods=["DELETE"])
+def delete_dir(dirname):
+    try:
+        path = get_dir_path(dirname)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if not os.path.isdir(path) or os.path.abspath(path) == os.path.abspath(WORDS_DIR):
+        return jsonify({"error": "目录不存在或不可删除"}), 404
+    shutil.rmtree(path)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/files")
 def list_files():
+    try:
+        directory = get_dir_path(request.args.get("dir", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     files = []
-    if not os.path.isdir(WORDS_DIR):
+    if not os.path.isdir(directory):
         return jsonify([])
-    for f in sorted(os.listdir(WORDS_DIR)):
+    for f in sorted(os.listdir(directory)):
         if f.endswith(".txt"):
-            filepath = os.path.join(WORDS_DIR, f)
+            filepath = os.path.join(directory, f)
             with open(filepath) as fh:
                 count = sum(1 for line in fh if parse_line(line))
             files.append({"name": f, "word_count": count})
@@ -269,9 +328,13 @@ def list_files():
 def get_words():
     filename = request.args.get("file", "")
     mastery_threshold = int(request.args.get("mastery", "0") or "0")
+    try:
+        directory = get_dir_path(request.args.get("dir", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     if filename:
-        filepath = os.path.join(WORDS_DIR, filename)
+        filepath = os.path.join(directory, filename)
         if not os.path.exists(filepath):
             return jsonify({"error": "File not found"}), 404
         source = []
@@ -281,7 +344,7 @@ def get_words():
                 if item:
                     source.append(item)
     else:
-        source = load_words_from_dir(WORDS_DIR)
+        source = load_words_from_dir(directory)
 
     if mastery_threshold > 0:
         mastery = load_mastery()
@@ -299,8 +362,12 @@ def upload_file():
         return jsonify({"error": "No file selected"}), 400
     if not f.filename.endswith(".txt"):
         return jsonify({"error": "Only .txt files allowed"}), 400
-    os.makedirs(WORDS_DIR, exist_ok=True)
-    filepath = os.path.join(WORDS_DIR, f.filename)
+    try:
+        directory = get_dir_path(request.args.get("dir", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    os.makedirs(directory, exist_ok=True)
+    filepath = os.path.join(directory, f.filename)
     f.save(filepath)
     with open(filepath) as fh:
         count = sum(1 for line in fh if parse_line(line))
@@ -309,10 +376,68 @@ def upload_file():
 
 @app.route("/api/files/<filename>", methods=["DELETE"])
 def delete_file(filename):
-    filepath = os.path.join(WORDS_DIR, filename)
+    try:
+        directory = get_dir_path(request.args.get("dir", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    filepath = os.path.join(directory, filename)
     if not os.path.exists(filepath):
         return jsonify({"error": "File not found"}), 404
     os.remove(filepath)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/word", methods=["DELETE"])
+def delete_word():
+    filename = request.args.get("file", "")
+    word_to_delete = request.args.get("word", "")
+    try:
+        directory = get_dir_path(request.args.get("dir", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if not filename or not word_to_delete:
+        return jsonify({"error": "缺少参数"}), 400
+    filepath = os.path.join(directory, filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": "文件不存在"}), 404
+    with open(filepath, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    new_lines = []
+    removed = 0
+    for line in lines:
+        item = parse_line(line)
+        if item and item["word"].lower() == word_to_delete.lower():
+            removed += 1
+        else:
+            new_lines.append(line)
+    with open(filepath, "w", encoding="utf-8") as fh:
+        fh.writelines(new_lines)
+    return jsonify({"removed": removed})
+
+
+@app.route("/api/wrongwords", methods=["POST"])
+def add_wrong_word():
+    data = request.get_json(silent=True)
+    if not data or not data.get("word") or not data.get("file"):
+        return jsonify({"error": "缺少参数"}), 400
+    try:
+        directory = get_dir_path(data.get("dir", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    word = data["word"].strip()
+    if not word:
+        return jsonify({"error": "单词为空"}), 400
+    wrong_file = os.path.join(directory, "错词表.txt")
+    existing = set()
+    if os.path.exists(wrong_file):
+        with open(wrong_file, encoding="utf-8") as fh:
+            for line in fh:
+                item = parse_line(line)
+                if item:
+                    existing.add(item["word"].lower())
+    if word.lower() not in existing:
+        with open(wrong_file, "a", encoding="utf-8") as fh:
+            fh.write(word + "\n")
     return jsonify({"ok": True})
 
 

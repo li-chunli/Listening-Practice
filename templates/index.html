@@ -72,6 +72,19 @@
 
   hr { border: none; border-top: 1px solid #334155; margin: 20px 0; }
 
+  /* Directory chips */
+  .dir-strip { display:flex; gap:5px; flex-wrap:wrap; flex:1; min-width:0; }
+  .dir-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 500;
+    cursor: pointer; border: 1px solid #334155; background: transparent;
+    color: #94a3b8; font-family: inherit; white-space: nowrap; transition: all 0.15s;
+  }
+  .dir-chip:hover { border-color: #6366f1; color: #e2e8f0; }
+  .dir-chip.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+  .dir-chip .dx { opacity: 0.65; font-size: 0.85rem; line-height:1; margin-left:2px; }
+  .dir-chip .dx:hover { opacity: 1; }
+
   /* ---- Manage view ---- */
   .header {
     text-align: center;
@@ -427,7 +440,10 @@
 
     <!-- Word Lists -->
     <div class="card">
-      <h2>词库列表</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <h2 style="margin:0;">词库列表</h2>
+        <button class="btn btn-outline btn-sm" onclick="promptCreateDir()">+ 目录</button>
+      </div>
       <div class="file-list" id="fileList">
         <div class="empty-msg">加载中...</div>
       </div>
@@ -573,6 +589,15 @@
       <button class="btn btn-icon" id="loopSpeakBtn" onclick="toggleLoopSpeak()" title="循环发音" style="background:#fff;color:#1e293b;">
         <img id="loopImg" src="/ico/01-默认图标.png" width="24" height="24" style="display:block;">
         <img id="stopImg" src="/ico/02-播放中.gif" width="24" height="24" style="display:none;">
+      </button>
+      <button class="btn btn-icon" id="deleteWordBtn" onclick="deleteCurrentWord()" title="从词库删除当前单词" style="background:#334155;color:#ef4444;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6"/>
+          <path d="M14 11v6"/>
+          <path d="M9 6V4h6v2"/>
+        </svg>
       </button>
     </div>
 
@@ -723,43 +748,114 @@ function showToast(msg, isError) {
   t._tid = setTimeout(() => { t.className = "toast"; }, 2000);
 }
 
-// ===================== MANAGE: file list =====================
+// ===================== MANAGE: dirs + file list =====================
 let files = [];
 let selectedFile = "";
+let currentDir = "";
+let dirs = [];
+
+async function loadDirs() {
+  try {
+    const res = await fetch("/api/dirs");
+    dirs = await res.json();
+  } catch(e) { dirs = []; }
+}
+
+async function selectDir(name) {
+  currentDir = name;
+  selectedFile = "";
+  await loadDirs();
+  await loadFileList();
+}
+
+async function promptCreateDir() {
+  const name = prompt("输入新目录名称：");
+  if (!name || !name.trim()) return;
+  try {
+    const res = await fetch("/api/dirs", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name: name.trim()})
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error);
+    currentDir = d.name; selectedFile = "";
+    await loadDirs(); await loadFileList();
+    showToast("已创建：" + d.name);
+  } catch(e) { showToast(e.message || "创建失败", true); }
+}
+
+async function confirmDeleteDir(name) {
+  try {
+    const res = await fetch("/api/dirs/" + encodeURIComponent(name), {method: "DELETE"});
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error);
+    if (currentDir === name) { currentDir = ""; selectedFile = ""; }
+    await loadDirs(); await loadFileList();
+    showToast("已删除：" + name);
+  } catch(e) { showToast(e.message || "删除失败", true); }
+}
+
+function dirParam() {
+  return currentDir ? "&dir=" + encodeURIComponent(currentDir) : "";
+}
 
 async function loadFileList() {
   try {
-    const res = await fetch("/api/files");
+    await loadDirs();
+    const res = await fetch("/api/files" + (currentDir ? "?dir=" + encodeURIComponent(currentDir) : ""));
     files = await res.json();
-    if (files.length > 0 && !selectedFile) {
-      selectedFile = files[0].name;
-    }
+    if (files.length > 0 && !selectedFile) selectedFile = files[0].name;
+    if (files.length > 0 && !files.find(function(f) { return f.name === selectedFile; })) selectedFile = files[0].name;
     renderFileList();
   } catch (e) {
-    document.getElementById("fileList").innerHTML =
-      '<div class="empty-msg">加载失败</div>';
+    document.getElementById("fileList").innerHTML = '<div class="empty-msg">加载失败</div>';
   }
 }
 
 function renderFileList() {
   const el = document.getElementById("fileList");
-  if (files.length === 0) {
-    el.innerHTML = '<div class="empty-msg">暂无词库，请上传</div>';
-    return;
-  }
   let html = "";
-  files.forEach((f, i) => {
-    const sel = f.name === selectedFile ? " selected" : "";
-    html += '<div class="file-row' + sel + '" onclick="selectFile(\'' +
-      f.name.replace(/'/g, "\\'") + '\')">' +
-      '<input type="radio" name="wordfile"' + (sel ? " checked" : "") + '>' +
-      '<span class="file-name">' + f.name + '</span>' +
-      '<span class="file-count">' + f.word_count + ' 个单词</span>' +
-      '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFile(\'' +
-      f.name.replace(/'/g, "\\'") + '\')">删除</button>' +
+
+  // Back row when inside a sub-directory
+  if (currentDir) {
+    html += '<div class="file-row" onclick="selectDir(\'\')" style="color:#94a3b8;cursor:pointer;">' +
+      '<span style="font-size:1rem;width:18px;text-align:center;">↩</span>' +
+      '<span class="file-name">..</span>' +
+      '<span class="file-count"></span><span></span>' +
       '</div>';
-  });
-  el.innerHTML = html;
+  }
+
+  // Sub-directory rows (only shown at root level)
+  if (!currentDir) {
+    dirs.filter(function(d) { return d.name; }).forEach(function(d) {
+      html += '<div class="file-row" onclick="selectDir(\'' + d.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;">' +
+        '<span style="font-size:1rem;width:18px;text-align:center;">📁</span>' +
+        '<span class="file-name">' + d.name + '</span>' +
+        '<span class="file-count">' + (d.file_count || 0) + ' 个文件</span>' +
+        '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDeleteDir(\'' +
+        d.name.replace(/'/g, "\\'") + '\')">删除</button>' +
+        '</div>';
+    });
+  }
+
+  // File rows
+  if (files.length === 0) {
+    html += '<div class="empty-msg">暂无词库，请上传</div>';
+  } else {
+    files.forEach(function(f) {
+      const sel = f.name === selectedFile ? " selected" : "";
+      html += '<div class="file-row' + sel + '" onclick="selectFile(\'' +
+        f.name.replace(/'/g, "\\'") + '\')">' +
+        '<input type="radio" name="wordfile"' + (sel ? " checked" : "") + '>' +
+        '<span class="file-name">' + f.name + '</span>' +
+        '<span class="file-count">' + f.word_count + ' 个单词</span>' +
+        '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFile(\'' +
+        f.name.replace(/'/g, "\\'") + '\')">删除</button>' +
+        '</div>';
+    });
+  }
+
+  el.innerHTML = html || '<div class="empty-msg">空目录</div>';
 }
 
 function selectFile(name) {
@@ -773,7 +869,8 @@ async function handleUpload(input) {
   const formData = new FormData();
   formData.append("file", file);
   try {
-    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const url = "/api/upload" + (currentDir ? "?dir=" + encodeURIComponent(currentDir) : "");
+    const res = await fetch(url, { method: "POST", body: formData });
     if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
     const data = await res.json();
     selectedFile = data.name;
@@ -786,9 +883,9 @@ async function handleUpload(input) {
 }
 
 async function deleteFile(name) {
-  if (!confirm("确认删除 " + name + "？")) return;
   try {
-    await fetch("/api/files/" + encodeURIComponent(name), { method: "DELETE" });
+    const url = "/api/files/" + encodeURIComponent(name) + (currentDir ? "?dir=" + encodeURIComponent(currentDir) : "");
+    await fetch(url, { method: "DELETE" });
     if (selectedFile === name) selectedFile = "";
     await loadFileList();
     showToast("已删除：" + name);
@@ -825,7 +922,7 @@ async function startTraining(mode) {
 
   // Load words (no mastery filter in practice mode)
   try {
-    let url = "/api/words?file=" + encodeURIComponent(selectedFile);
+    let url = "/api/words?file=" + encodeURIComponent(selectedFile) + dirParam();
     if (masteryThreshold > 0 && mode === "exam") url += "&mastery=" + masteryThreshold;
     const res = await fetch(url);
     words = await res.json();
@@ -1279,6 +1376,32 @@ function stopLoopSpeak() {
   document.getElementById("stopImg").style.display = "none";
 }
 
+// ===================== DELETE WORD =====================
+async function deleteCurrentWord() {
+  if (!currentWord || !selectedFile) return;
+  var word = currentWord.word;
+  try {
+    var url = "/api/word?file=" + encodeURIComponent(selectedFile) +
+              "&word=" + encodeURIComponent(word) +
+              (currentDir ? "&dir=" + encodeURIComponent(currentDir) : "");
+    var res = await fetch(url, { method: "DELETE" });
+    if (!res.ok) { var d = await res.json(); throw new Error(d.error); }
+    words.splice(currentIndex, 1);
+    showToast("已删除：" + word);
+    if (words.length === 0) {
+      document.getElementById("ipaText").textContent = "词库已空";
+      document.getElementById("defText").textContent = "";
+      document.getElementById("feedback").textContent = "";
+      currentWord = null;
+      return;
+    }
+    if (currentIndex >= words.length) currentIndex = words.length - 1;
+    showPracticeWord();
+  } catch(e) {
+    showToast(e.message || "删除失败", true);
+  }
+}
+
 // ===================== ACCENT =====================
 var accentNames = { uk: "英式音标", us: "美式音标", au: "英式音标", in: "英式音标", ca: "英式音标", ie: "英式音标" };
 
@@ -1591,6 +1714,14 @@ document.getElementById("wordInput").addEventListener("input", function() {
         document.getElementById("feedback").textContent = Math.floor(elapsed) + "s — 再来一次";
         document.getElementById("feedback").className = "feedback";
         this.disabled = true;
+        // Record to 错词表.txt
+        if (selectedFile) {
+          fetch("/api/wrongwords", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({word: currentWord.word, file: selectedFile, dir: currentDir})
+          }).catch(function(){});
+        }
         setTimeout(function() {
           document.getElementById("wordInput").classList.remove("correct-input");
           document.getElementById("wordCard").classList.remove("correct");
@@ -1730,7 +1861,7 @@ function finishSession() {
 }
 
 // ===================== INIT =====================
-loadFileList();
+loadDirs(); loadFileList();
 </script>
 </body>
 </html>
