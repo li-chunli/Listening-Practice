@@ -14,21 +14,7 @@ app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORDS_DIR = os.path.join(BASE_DIR, "word")
-MASTERY_FILE = os.path.join(BASE_DIR, "mastery.json")
 DICT_DB = os.path.join(BASE_DIR, "dict", "stardict.db")
-
-
-# ---- Mastery helpers ----
-def load_mastery():
-    if not os.path.exists(MASTERY_FILE):
-        return {}
-    with open(MASTERY_FILE) as f:
-        return json.load(f)
-
-
-def save_mastery(data):
-    with open(MASTERY_FILE, "w") as f:
-        json.dump(data, f, indent=2)
 
 
 # ---- Dictionary lookup ----
@@ -327,7 +313,6 @@ def list_files():
 @app.route("/api/words")
 def get_words():
     filename = request.args.get("file", "")
-    mastery_threshold = int(request.args.get("mastery", "0") or "0")
     try:
         directory = get_dir_path(request.args.get("dir", ""))
     except ValueError as e:
@@ -345,10 +330,6 @@ def get_words():
                     source.append(item)
     else:
         source = load_words_from_dir(directory)
-
-    if mastery_threshold > 0:
-        mastery = load_mastery()
-        source = [w for w in source if mastery.get(w["word"].lower(), 0) < mastery_threshold]
 
     return jsonify(source)
 
@@ -440,27 +421,6 @@ def add_wrong_word():
             fh.write(word + "\n")
     return jsonify({"ok": True})
 
-
-@app.route("/api/mastery", methods=["GET", "POST", "DELETE"])
-def mastery():
-    if request.method == "GET":
-        return jsonify(load_mastery())
-
-    elif request.method == "POST":
-        data = request.get_json(silent=True)
-        if not data or "word" not in data:
-            return jsonify({"error": "Missing 'word' field"}), 400
-        word = data["word"].lower().strip()
-        if not word:
-            return jsonify({"error": "Empty word"}), 400
-        mastery = load_mastery()
-        mastery[word] = mastery.get(word, 0) + 1
-        save_mastery(mastery)
-        return jsonify({"word": word, "count": mastery[word]})
-
-    elif request.method == "DELETE":
-        save_mastery({})
-        return jsonify({"ok": True})
 
 
 def _valid_mp3(data):

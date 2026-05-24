@@ -481,13 +481,6 @@
             <option value="1.5">1.5x 快速</option>
           </select>
         </div>
-        <div class="setting">
-          <label>答对 ≥ N 次后跳过（0=不跳过）</label>
-          <div style="display:flex;gap:8px;">
-            <input type="number" id="cfgMastery" value="0" min="0" max="99" step="1" style="flex:1;">
-            <button class="btn btn-outline btn-sm" onclick="resetMastery()" style="white-space:nowrap;">清除记录</button>
-          </div>
-        </div>
       </div>
       <hr>
       <div style="display:flex;gap:12px;">
@@ -895,16 +888,6 @@ async function deleteFile(name) {
 }
 
 // ===================== START TRAINING =====================
-async function resetMastery() {
-  if (!confirm("确认清除所有掌握记录？此操作不可撤销。")) return;
-  try {
-    await fetch("/api/mastery", { method: "DELETE" });
-    showToast("已清除掌握记录");
-  } catch (e) {
-    showToast("清除失败", true);
-  }
-}
-
 async function startTraining(mode) {
   if (!selectedFile) {
     showToast("请先选择一个词库", true);
@@ -918,12 +901,9 @@ async function startTraining(mode) {
   intervalSec = parseInt(document.getElementById("cfgInterval").value) || 5;
   speakCount = parseInt(document.getElementById("cfgSpeakCount").value) || 2;
   speakRate = parseFloat(document.getElementById("cfgRate").value) || 1.0;
-  const masteryThreshold = parseInt(document.getElementById("cfgMastery").value) || 0;
 
-  // Load words (no mastery filter in practice mode)
   try {
     let url = "/api/words?file=" + encodeURIComponent(selectedFile) + dirParam();
-    if (masteryThreshold > 0 && mode === "exam") url += "&mastery=" + masteryThreshold;
     const res = await fetch(url);
     words = await res.json();
   } catch (e) {
@@ -951,7 +931,6 @@ async function startTraining(mode) {
   let infoStr = selectedFile + "  |  " + modeLabel;
   if (mode === "exam") {
     infoStr += "  |  " + intervalSec + "秒  |  朗读" + speakCount + "次";
-    if (masteryThreshold > 0) infoStr += "  |  掌握<" + masteryThreshold;
   }
   document.getElementById("trainInfo").textContent = infoStr;
 
@@ -1630,12 +1609,6 @@ function checkAnswer() {
     input.classList.add("correct-input");
     fb.textContent = "✓ 正确！ — " + currentWord.word;
     fb.className = "feedback correct-msg";
-    // Record mastery
-    fetch("/api/mastery", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ word: currentWord.word })
-    }).catch(() => {});
   } else {
     wrong++;
     wordResults[currentIndex] = "wrong";
