@@ -648,6 +648,55 @@ function stopAudio() {
   }
 }
 
+// ===================== PREFETCH CACHE =====================
+const audioBlobs = new Map(); // tts-url -> blobObjectURL | 'loading'
+
+function prefetchAudio(word) {
+  if (isWebSpeech()) return;
+  var url = getTtsAudioUrl(word);
+  if (audioBlobs.has(url)) return;
+  audioBlobs.set(url, 'loading');
+  fetch(url)
+    .then(function(r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(function(blob) { audioBlobs.set(url, URL.createObjectURL(blob)); })
+    .catch(function() { audioBlobs.delete(url); });
+}
+
+function prefetchAhead(fromIdx, count) {
+  for (var i = 1; i <= count; i++) {
+    var idx = fromIdx + i;
+    if (idx < words.length) prefetchAudio(words[idx].word);
+  }
+}
+
+function makeTtsAudio(word) {
+  var url = getTtsAudioUrl(word);
+  var cached = audioBlobs.get(url);
+  return new Audio((cached && cached !== 'loading') ? cached : url);
+}
+
+function playWhenReady(word, callback) {
+  var url = getTtsAudioUrl(word);
+  prefetchAudio(word);
+  var attempts = 0;
+  function check() {
+    var cached = audioBlobs.get(url);
+    if (cached && cached !== 'loading') {
+      callback(new Audio(cached));
+    } else if (attempts++ < 60) {
+      setTimeout(check, 100);
+    } else {
+      callback(new Audio(url)); // fallback after 6s
+    }
+  }
+  check();
+}
+
+function clearAudioCache() {
+  audioBlobs.forEach(function(v) { if (v && v !== 'loading') URL.revokeObjectURL(v); });
+  audioBlobs.clear();
+}
+
 let speakTimer = null;
 let speakCount = 2;
 let intervalSec = 5;
@@ -931,6 +980,8 @@ function showPracticeWord() {
   nxt.disabled = (currentIndex >= words.length - 1);
 
 
+  prefetchAudio(currentWord.word);
+  prefetchAhead(currentIndex, 5);
   stopSpeech();
   var wasLoop = loopSpeaking;
   if (wasLoop) stopLoopSpeak();
@@ -1151,15 +1202,20 @@ function speakOnce() {
     synth.speak(utter);
   } else {
     stopAudio();
-    const audio = new Audio(getTtsAudioUrl(currentWord.word));
-    audio.onerror = function() { showToast("TTS 播放失败", true); };
-    currentAudio = audio;
-    audio.play();
+    var _w = currentWord.word;
+    playWhenReady(_w, function(audio) {
+      if (!currentWord || currentWord.word !== _w) return;
+      currentAudio = audio;
+      currentAudio.onerror = function() { showToast("TTS 播放失败", true); };
+      currentAudio.play();
+    });
   }
 }
 
 let loopSpeaking = false;
 let loopUtter = null;
+let loopGen = 0;       // only incremented by stopLoopSpeak
+let loopNextTimer = null; // the pending 3s repeat timer
 
 function toggleLoopSpeak() {
   if (loopSpeaking) {
@@ -1170,6 +1226,7 @@ function toggleLoopSpeak() {
   stopAudio();
   if (isWebSpeech() && synth) synth.cancel();
   if (speakTimer) clearTimeout(speakTimer);
+  loopGen++;
   loopSpeaking = true;
   document.getElementById("loopImg").style.display = "none";
   document.getElementById("stopImg").style.display = "block";
@@ -1190,19 +1247,31 @@ function doLoopSpeak() {
     loopUtter.onend = function() { if (loopSpeaking) setTimeout(function() { doLoopSpeak(); }, 3000); };
     synth.speak(loopUtter);
   } else {
-    stopAudio();
-    var audio = new Audio(getTtsAudioUrl(currentWord.word));
-    audio.onended = function() { if (loopSpeaking) setTimeout(function() { doLoopSpeak(); }, 3000); };
-    audio.onerror = function() {
-      showToast("TTS 播放失败", true);
-      if (loopSpeaking) setTimeout(function() { doLoopSpeak(); }, 3000);
-    };
-    currentAudio = audio;
-    audio.play();
+    var myGen = loopGen;   // capture, never modify
+    var _w = currentWord.word;
+    playWhenReady(_w, function(audio) {
+      if (loopGen !== myGen || !loopSpeaking || !currentWord || currentWord.word !== _w) return;
+      stopAudio();
+      currentAudio = audio;
+      currentAudio.onended = function() {
+        if (loopGen === myGen && loopSpeaking) {
+          loopNextTimer = setTimeout(doLoopSpeak, 3000);
+        }
+      };
+      currentAudio.onerror = function() {
+        showToast("TTS 播放失败", true);
+        if (loopGen === myGen && loopSpeaking) {
+          loopNextTimer = setTimeout(doLoopSpeak, 3000);
+        }
+      };
+      currentAudio.play();
+    });
   }
 }
 
 function stopLoopSpeak() {
+  if (loopNextTimer) { clearTimeout(loopNextTimer); loopNextTimer = null; }
+  loopGen++;
   loopSpeaking = false;
   synth.cancel();
   stopAudio();
@@ -1215,6 +1284,7 @@ var accentNames = { uk: "英式音标", us: "美式音标", au: "英式音标", 
 
 function setVoiceGender(val) {
   voiceGender = val;
+  clearAudioCache();
   if (!currentWord) return;
   stopAudio();
   if (trainMode === "practice") {
@@ -1263,6 +1333,7 @@ function pickVoice(voices, targetLang) {
 
 function setAccent(acc) {
   accent = acc;
+  clearAudioCache();
   document.querySelectorAll(".accent-btn").forEach(function(b) {
     b.classList.toggle("active", b.dataset.accent === acc);
   });
@@ -1312,19 +1383,18 @@ function speakCurrentWord() {
       synth.speak(utter);
     } else {
       stopAudio();
-      var audio = new Audio(getTtsAudioUrl(currentWord.word));
-      audio.onended = function() {
-        if (times < speakCount && running && !answered) {
-          speakTimer = setTimeout(doSpeak, 1200);
-        }
-      };
-      audio.onerror = function() {
-        if (times < speakCount && running && !answered) {
-          speakTimer = setTimeout(doSpeak, 1200);
-        }
-      };
-      currentAudio = audio;
-      audio.play();
+      var _w = currentWord.word;
+      playWhenReady(_w, function(audio) {
+        if (!running || answered || !currentWord || currentWord.word !== _w) return;
+        currentAudio = audio;
+        currentAudio.onended = function() {
+          if (times < speakCount && running && !answered) speakTimer = setTimeout(doSpeak, 1200);
+        };
+        currentAudio.onerror = function() {
+          if (times < speakCount && running && !answered) speakTimer = setTimeout(doSpeak, 1200);
+        };
+        currentAudio.play();
+      });
     }
   }
   doSpeak();
@@ -1406,6 +1476,8 @@ function showWord() {
 
   document.getElementById("remainingCount").textContent = words.length - currentIndex;
 
+  prefetchAudio(currentWord.word);
+  prefetchAhead(currentIndex, 5);
   startTimer();
   speakCurrentWord();
 }
@@ -1539,7 +1611,11 @@ document.getElementById("wordInput").addEventListener("input", function() {
           document.getElementById("wordReveal").classList.remove("show");
           document.getElementById("hintBtn").classList.remove("on");
           stopSpeech();
-          if (loopSpeaking) { doLoopSpeak(); } else { speakOnce(); }
+          if (loopSpeaking) {
+            if (loopNextTimer) { clearTimeout(loopNextTimer); loopNextTimer = null; }
+            loopGen++;
+            doLoopSpeak();
+          } else { speakOnce(); }
         }, 800);
         return;
       }
@@ -1548,8 +1624,22 @@ document.getElementById("wordInput").addEventListener("input", function() {
     }
     // Delay briefly to show timing feedback
     var adv = function() { practiceNext(); };
-    if (drillOn) { setTimeout(adv, 800); }
-    else { adv(); }
+    if (drillOn) {
+      setTimeout(adv, 800);
+    } else if (loopSpeaking && currentAudio && !currentAudio.paused && !currentAudio.ended) {
+      // Wait for current audio to finish naturally before switching
+      var ca = currentAudio;
+      var advDone = false;
+      var advTimer = setTimeout(function() {
+        if (!advDone) { advDone = true; adv(); }
+      }, 4000);
+      ca.onended = function() {
+        clearTimeout(advTimer);
+        if (!advDone) { advDone = true; setTimeout(adv, 80); }
+      };
+    } else {
+      adv();
+    }
   }
 });
 

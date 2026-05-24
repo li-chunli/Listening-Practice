@@ -338,6 +338,35 @@ def mastery():
         return jsonify({"ok": True})
 
 
+def _valid_mp3(data):
+    """Check data looks like a complete MP3: valid header + minimum size."""
+    if len(data) < 2048:
+        return False
+    return data[:3] == b'ID3' or (data[0] == 0xFF and (data[1] & 0xE0) == 0xE0)
+
+
+@lru_cache(maxsize=2000)
+def _fetch_google(word, lang):
+    url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + quote(word)
+    for _ in range(3):
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        data = urlopen(req, timeout=10).read()
+        if _valid_mp3(data):
+            return data
+    raise ValueError(f"truncated audio for '{word}'")
+
+
+@lru_cache(maxsize=2000)
+def _fetch_baidu(word, lang):
+    url = "https://fanyi.baidu.com/gettts?lan=" + lang + "&text=" + quote(word) + "&spd=3"
+    for _ in range(3):
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        data = urlopen(req, timeout=10).read()
+        if _valid_mp3(data):
+            return data
+    raise ValueError(f"truncated audio for '{word}'")
+
+
 @app.route("/api/tts/google")
 def tts_google():
     word = request.args.get("word", "")
@@ -345,11 +374,9 @@ def tts_google():
     if not word:
         return jsonify({"error": "Missing word"}), 400
     try:
-        url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + quote(word)
-        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        resp = urlopen(req, timeout=10)
-        return app.response_class(resp.read(), mimetype="audio/mpeg")
+        return app.response_class(_fetch_google(word, lang), mimetype="audio/mpeg")
     except Exception as e:
+        _fetch_google.cache_clear()
         return jsonify({"error": str(e)}), 500
 
 
@@ -360,11 +387,9 @@ def tts_baidu():
     if not word:
         return jsonify({"error": "Missing word"}), 400
     try:
-        url = "https://fanyi.baidu.com/gettts?lan=" + lang + "&text=" + quote(word) + "&spd=3"
-        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        resp = urlopen(req, timeout=10)
-        return app.response_class(resp.read(), mimetype="audio/mpeg")
+        return app.response_class(_fetch_baidu(word, lang), mimetype="audio/mpeg")
     except Exception as e:
+        _fetch_baidu.cache_clear()
         return jsonify({"error": str(e)}), 500
 
 
@@ -384,6 +409,22 @@ _EDGE_VOICES = {
 }
 
 
+@lru_cache(maxsize=2000)
+def _fetch_edge(word, voice):
+    async def _generate():
+        communicate = edge_tts.Communicate(word, voice)
+        buf = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                buf += chunk["data"]
+        return buf
+    for _ in range(3):
+        data = asyncio.run(_generate())
+        if _valid_mp3(data):
+            return data
+    raise ValueError(f"truncated audio for '{word}'")
+
+
 @app.route("/api/tts/edge")
 def tts_edge():
     word = request.args.get("word", "")
@@ -392,19 +433,10 @@ def tts_edge():
     if not word:
         return jsonify({"error": "Missing word"}), 400
     voice = _EDGE_VOICES.get((lang, gender), "en-GB-SoniaNeural")
-
-    async def _generate():
-        communicate = edge_tts.Communicate(word, voice)
-        buf = b""
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                buf += chunk["data"]
-        return buf
-
     try:
-        audio = asyncio.run(_generate())
-        return app.response_class(audio, mimetype="audio/mpeg")
+        return app.response_class(_fetch_edge(word, voice), mimetype="audio/mpeg")
     except Exception as e:
+        _fetch_edge.cache_clear()
         return jsonify({"error": str(e)}), 500
 
 
