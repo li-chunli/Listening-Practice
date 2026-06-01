@@ -1251,11 +1251,15 @@ function cancelShuffle() {
 
 function toggleDrill() {
   var btn = document.getElementById("drillBtn");
+  var repeatBtn = document.getElementById("repeatCountBtn");
   if (!drillOn) {
     drillOn = true;
     btn.classList.add("on");
     btn.style.background = "#f59e0b";
     btn.style.color = "#000";
+    repeatBtn.disabled = true;
+    repeatBtn.style.opacity = "0.35";
+    currentRepeatCount = 0;
     // Start timer immediately for current word
     wordStartTime = Date.now();
     document.getElementById("drillTimer").style.display = "";
@@ -1270,6 +1274,8 @@ function toggleDrill() {
     btn.classList.remove("on");
     btn.style.background = "#334155";
     btn.style.color = "#94a3b8";
+    repeatBtn.disabled = false;
+    repeatBtn.style.opacity = "";
     if (drillTimerInterval) { clearInterval(drillTimerInterval); drillTimerInterval = null; }
     document.getElementById("drillTimer").style.display = "none";
     showToast("强化训练已关闭");
@@ -1777,14 +1783,12 @@ document.getElementById("wordInput").addEventListener("input", function() {
       document.getElementById("feedback").textContent = "✓ " + Math.floor(elapsed) + "s";
       document.getElementById("feedback").className = "feedback correct-msg";
     }
-    // Repeat logic
+    // Repeat logic (disabled in drill mode)
     currentRepeatCount++;
     updateRepeatDots();
-    if (currentRepeatCount < practiceRepeat) {
-      if (!drillOn) {
-        document.getElementById("feedback").textContent = currentRepeatCount + " / " + practiceRepeat;
-        document.getElementById("feedback").className = "feedback correct-msg";
-      }
+    if (!drillOn && currentRepeatCount < practiceRepeat) {
+      document.getElementById("feedback").textContent = currentRepeatCount + " / " + practiceRepeat;
+      document.getElementById("feedback").className = "feedback correct-msg";
       setTimeout(function() {
         document.getElementById("wordInput").classList.remove("correct-input");
         document.getElementById("wordCard").classList.remove("correct");
@@ -1796,14 +1800,6 @@ document.getElementById("wordInput").addEventListener("input", function() {
         document.getElementById("wordInput").value = "";
         document.getElementById("wordInput").disabled = false;
         document.getElementById("wordInput").focus();
-        if (drillOn) {
-          wordStartTime = Date.now();
-          if (drillTimerInterval) clearInterval(drillTimerInterval);
-          document.getElementById("drillTimer").textContent = "0s";
-          drillTimerInterval = setInterval(function() {
-            document.getElementById("drillTimer").textContent = Math.floor((Date.now() - wordStartTime) / 1000) + "s";
-          }, 200);
-        }
         if (loopSpeaking) {
           if (loopNextTimer) { clearTimeout(loopNextTimer); loopNextTimer = null; }
           loopGen++;
