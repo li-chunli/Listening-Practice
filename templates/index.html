@@ -212,6 +212,7 @@
   }
   .btn-icon svg { display: block; }
 
+
   .word-reveal {
     text-align: center;
     font-size: 2.3rem;
@@ -592,6 +593,7 @@
         <img id="loopImg" src="/ico/01-默认图标.png" width="24" height="24" style="display:block;">
         <img id="stopImg" src="/ico/02-播放中.gif" width="24" height="24" style="display:none;">
       </button>
+      <button id="repeatCountBtn" onclick="cycleRepeatCount()" title="每词重复次数（点击切换）" class="btn btn-icon" style="background:#334155;color:#a5b4fc;font-size:1.2rem;font-weight:700;"><span id="repeatDigitPath">3</span></button>
       <button class="btn btn-icon" id="deleteWordBtn" onclick="deleteCurrentWord()" title="从词库删除当前单词" style="background:#334155;color:#ef4444;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"/>
@@ -735,6 +737,8 @@ let prevWord = null;
 let drillOn = false;
 let wordStartTime = 0;
 let drillQueue = [];
+let practiceRepeat = 3;
+let currentRepeatCount = 0;
 let drillTimerInterval = null;
 let shuffled = false;
 let originalWords = [];
@@ -1073,6 +1077,8 @@ function showPracticeWord() {
   document.getElementById("submitBtn").disabled = true;
   document.getElementById("hintBtn").classList.remove("on");
   document.getElementById("navPos").textContent = (currentIndex + 1) + " / " + words.length;
+  currentRepeatCount = 0;
+  updateRepeatDots();
   var nxt = document.getElementById("nextBtn");
   nxt.textContent = "NEXT ▶";
   nxt.onclick = practiceNext;
@@ -1081,7 +1087,13 @@ function showPracticeWord() {
 
 
   prefetchAudio(currentWord.word);
-  prefetchAhead(currentIndex, 5);
+  if (shuffled) {
+    for (var _i = originalIndex; _i < words.length; _i++) {
+      if (shuffleSeen.indexOf(_i) < 0) prefetchAudio(words[_i].word);
+    }
+  } else {
+    prefetchAhead(currentIndex, 5);
+  }
   stopSpeech();
   var wasLoop = loopSpeaking;
   if (wasLoop) stopLoopSpeak();
@@ -1378,6 +1390,21 @@ function stopLoopSpeak() {
   document.getElementById("loopImg").style.display = "block";
   document.getElementById("stopImg").style.display = "none";
 }
+
+// ===================== REPEAT =====================
+function cycleRepeatCount() {
+  setRepeatCount(practiceRepeat >= 9 ? 1 : practiceRepeat + 1);
+}
+
+function setRepeatCount(n) {
+  practiceRepeat = n;
+  currentRepeatCount = 0;
+  var el = document.getElementById("repeatDigitPath");
+  if (el) el.textContent = n;
+  updateRepeatDots();
+}
+
+function updateRepeatDots() {}
 
 // ===================== DELETE WORD =====================
 async function deleteCurrentWord() {
@@ -1750,7 +1777,42 @@ document.getElementById("wordInput").addEventListener("input", function() {
       document.getElementById("feedback").textContent = "✓ " + Math.floor(elapsed) + "s";
       document.getElementById("feedback").className = "feedback correct-msg";
     }
-    // Delay briefly to show timing feedback
+    // Repeat logic
+    currentRepeatCount++;
+    updateRepeatDots();
+    if (currentRepeatCount < practiceRepeat) {
+      if (!drillOn) {
+        document.getElementById("feedback").textContent = currentRepeatCount + " / " + practiceRepeat;
+        document.getElementById("feedback").className = "feedback correct-msg";
+      }
+      setTimeout(function() {
+        document.getElementById("wordInput").classList.remove("correct-input");
+        document.getElementById("wordCard").classList.remove("correct");
+        document.getElementById("wordReveal").classList.remove("show");
+        document.getElementById("hintBtn").classList.remove("on");
+        document.getElementById("feedback").textContent = "";
+        document.getElementById("feedback").className = "feedback";
+        hintOn = false; hintLocked = false;
+        document.getElementById("wordInput").value = "";
+        document.getElementById("wordInput").disabled = false;
+        document.getElementById("wordInput").focus();
+        if (drillOn) {
+          wordStartTime = Date.now();
+          if (drillTimerInterval) clearInterval(drillTimerInterval);
+          document.getElementById("drillTimer").textContent = "0s";
+          drillTimerInterval = setInterval(function() {
+            document.getElementById("drillTimer").textContent = Math.floor((Date.now() - wordStartTime) / 1000) + "s";
+          }, 200);
+        }
+        if (loopSpeaking) {
+          if (loopNextTimer) { clearTimeout(loopNextTimer); loopNextTimer = null; }
+          loopGen++;
+          doLoopSpeak();
+        } else { speakOnce(); }
+      }, 400);
+      return;
+    }
+    // All repeats done - advance
     var adv = function() { practiceNext(); };
     if (drillOn) {
       setTimeout(adv, 800);
