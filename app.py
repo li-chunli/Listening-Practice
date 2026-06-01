@@ -9,8 +9,18 @@ from urllib.request import Request, urlopen
 from urllib.parse import quote
 import edge_tts
 from flask import Flask, render_template, jsonify, request, send_from_directory
-
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5MB upload limit
+
+
+def safe_filename(name):
+    """Strip path traversal chars while preserving Unicode (Chinese) filenames."""
+    if not name:
+        return ""
+    name = re.sub(r'[\x00-\x1f\x7f]', '', name)  # control chars
+    name = name.replace('/', '').replace('\\', '')  # path separators
+    name = name.replace('..', '')                   # traversal
+    return name.strip()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORDS_DIR = os.path.join(BASE_DIR, "word")
@@ -247,10 +257,7 @@ def index():
 
 @app.route("/api/dict/status")
 def dict_status():
-    return jsonify({
-        "available": dictdb is not None,
-        "db_path": DICT_DB,
-    })
+    return jsonify({"available": dictdb is not None})
 
 
 @app.route("/api/dirs")
@@ -312,7 +319,7 @@ def list_files():
 
 @app.route("/api/words")
 def get_words():
-    filename = request.args.get("file", "")
+    filename = safe_filename(request.args.get("file", ""))
     try:
         directory = get_dir_path(request.args.get("dir", ""))
     except ValueError as e:
@@ -341,18 +348,19 @@ def upload_file():
     f = request.files["file"]
     if f.filename == "":
         return jsonify({"error": "No file selected"}), 400
-    if not f.filename.endswith(".txt"):
+    safe_name = safe_filename(f.filename)
+    if not safe_name.endswith(".txt"):
         return jsonify({"error": "Only .txt files allowed"}), 400
     try:
         directory = get_dir_path(request.args.get("dir", ""))
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     os.makedirs(directory, exist_ok=True)
-    filepath = os.path.join(directory, f.filename)
+    filepath = os.path.join(directory, safe_name)
     f.save(filepath)
     with open(filepath) as fh:
         count = sum(1 for line in fh if parse_line(line))
-    return jsonify({"name": f.filename, "word_count": count})
+    return jsonify({"name": safe_name, "word_count": count})
 
 
 @app.route("/api/download/<filename>")
@@ -366,6 +374,7 @@ def download_file(filename):
 
 @app.route("/api/files/<filename>", methods=["DELETE"])
 def delete_file(filename):
+    filename = safe_filename(filename)
     try:
         directory = get_dir_path(request.args.get("dir", ""))
     except ValueError as e:
@@ -379,7 +388,7 @@ def delete_file(filename):
 
 @app.route("/api/word", methods=["DELETE"])
 def delete_word():
-    filename = request.args.get("file", "")
+    filename = safe_filename(request.args.get("file", ""))
     word_to_delete = request.args.get("word", "")
     try:
         directory = get_dir_path(request.args.get("dir", ""))
@@ -467,6 +476,8 @@ def tts_google():
     lang = request.args.get("lang", "en")
     if not word:
         return jsonify({"error": "Missing word"}), 400
+    if lang not in _ALLOWED_LANGS:
+        return jsonify({"error": "Invalid lang"}), 400
     try:
         return app.response_class(_fetch_google(word, lang), mimetype="audio/mpeg")
     except Exception as e:
@@ -480,12 +491,17 @@ def tts_baidu():
     lang = request.args.get("lang", "en")
     if not word:
         return jsonify({"error": "Missing word"}), 400
+    if lang not in _ALLOWED_LANGS:
+        return jsonify({"error": "Invalid lang"}), 400
     try:
         return app.response_class(_fetch_baidu(word, lang), mimetype="audio/mpeg")
     except Exception as e:
         _fetch_baidu.cache_clear()
         return jsonify({"error": str(e)}), 500
 
+
+_ALLOWED_LANGS = {"en", "en-GB", "en-US", "en-AU", "en-IN", "en-CA", "en-IE",
+                  "uk", "au"}  # baidu codes included
 
 _EDGE_VOICES = {
     ("en-GB", "female"): "en-GB-SoniaNeural",
@@ -526,6 +542,8 @@ def tts_edge():
     gender = request.args.get("gender", "female")
     if not word:
         return jsonify({"error": "Missing word"}), 400
+    if lang not in _ALLOWED_LANGS or gender not in ("male", "female"):
+        return jsonify({"error": "Invalid lang or gender"}), 400
     voice = _EDGE_VOICES.get((lang, gender), "en-GB-SoniaNeural")
     try:
         return app.response_class(_fetch_edge(word, voice), mimetype="audio/mpeg")
@@ -536,4 +554,4 @@ def tts_edge():
 
 if __name__ == "__main__":
     print(f"Dict DB: {'found' if os.path.exists(DICT_DB) else 'NOT FOUND'} at {DICT_DB}")
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=False)
