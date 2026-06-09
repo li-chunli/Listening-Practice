@@ -9,7 +9,9 @@ from urllib.request import Request, urlopen
 from urllib.parse import quote
 import edge_tts
 from flask import Flask, render_template, jsonify, request, send_from_directory
+from vocab_bp import vocab_bp
 app = Flask(__name__)
+app.register_blueprint(vocab_bp)
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5MB upload limit
 
 
