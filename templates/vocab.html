@@ -369,21 +369,47 @@
     gap: 12px;
     margin-bottom: 16px;
   }
-  .input-group input {
+  .input-color-wrap {
     flex: 1;
-    padding: 20px 26px;
+    position: relative;
     background: #1e293b;
     border: 2px solid #334155;
     border-radius: 16px;
+    transition: border-color 0.15s;
+  }
+  .input-color-wrap:focus-within { border-color: #6366f1; }
+  .input-color-wrap:has(.correct-input) { border-color: #22c55e; }
+  .input-color-wrap:has(.wrong-input)   { border-color: #ef4444; }
+  #inputColorLayer {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    padding: 20px 26px;
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: pre;
+  }
+  .input-group input {
+    width: 100%;
+    padding: 20px 26px;
+    background: transparent;
+    border: none;
+    border-radius: 14px;
     color: #f1f5f9;
-    font-size: 1.7rem;
+    font-size: 2rem;
+    font-weight: 700;
     font-family: inherit;
     outline: none;
     letter-spacing: 0.02em;
+    position: relative;
+    z-index: 1;
   }
-  .input-group input:focus { border-color: #6366f1; }
-  .input-group input.correct-input { border-color: #22c55e; }
-  .input-group input.wrong-input   { border-color: #ef4444; }
+  .input-group input.typing-colored { color: transparent; caret-color: #f1f5f9; }
   .input-group input:disabled { opacity: 0.5; }
 
   .scoreboard {
@@ -605,9 +631,14 @@
     </div>
 
     <!-- === EXAM MODE INPUT === -->
-    <div id="examInput" class="input-group">
-      <input type="text" id="wordInput" placeholder="在此输入单词..." disabled autocomplete="off" autocapitalize="off" spellcheck="false">
-      <button class="btn btn-primary" id="submitBtn" onclick="checkAnswer()" disabled>确认</button>
+    <div id="examInput" style="margin-bottom:16px;">
+      <div class="input-group" style="margin-bottom:0;">
+        <div class="input-color-wrap">
+          <div id="inputColorLayer" aria-hidden="true"></div>
+          <input type="text" id="wordInput" placeholder="在此输入单词..." disabled autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <button class="btn btn-primary" id="submitBtn" onclick="checkAnswer()" disabled>确认</button>
+      </div>
     </div>
 
     <!-- Score -->
@@ -747,6 +778,7 @@ let shuffled = false;
 let originalWords = [];
 let originalIndex = 0;
 let shuffleSeen = [];
+let backspaceHoldTimer = null;
 
 // ===================== TOAST =====================
 function showToast(msg, isError) {
@@ -900,6 +932,14 @@ async function startTraining(mode) {
   originalIndex = 0;
   shuffleSeen = [];
 
+  var wi = document.getElementById("wordInput");
+  if (mode === "practice") {
+    wi.classList.add("typing-colored");
+  } else {
+    wi.classList.remove("typing-colored");
+    var cl = document.getElementById("inputColorLayer"); if (cl) cl.textContent = "";
+  }
+
   if (mode === "exam") {
     // Warm up speech engine (Chrome autoplay policy requires user gesture)
     var dummy = new SpeechSynthesisUtterance("");
@@ -929,6 +969,9 @@ function backToManage() {
   document.getElementById("submitBtn").style.display = "";
   document.getElementById("scoreboard").style.display = "";
   document.getElementById("wordInput").disabled = true;
+  document.getElementById("wordInput").placeholder = "在此输入单词...";
+  document.getElementById("wordInput").classList.remove("typing-colored");
+  var _cl = document.getElementById("inputColorLayer"); if (_cl) _cl.textContent = "";
   document.getElementById("wordReveal").classList.remove("show");
   drillOn = false;
   drillQueue = [];
@@ -982,6 +1025,8 @@ function showPracticeWord() {
   document.getElementById("feedback").className = "feedback";
   document.getElementById("wordCard").classList.remove("correct", "wrong");
   document.getElementById("wordInput").value = "";
+  document.getElementById("wordInput").placeholder = "";
+  updateWordReveal();
   document.getElementById("wordInput").disabled = false;
   document.getElementById("wordInput").focus();
   document.getElementById("submitBtn").disabled = true;
@@ -1201,17 +1246,60 @@ function toggleHint() {
   }
 }
 
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateWordReveal() {
+  var layer = document.getElementById("inputColorLayer");
+  if (trainMode !== "practice" || !currentWord) {
+    if (layer) layer.textContent = "";
+    return;
+  }
+  var reveal = document.getElementById("wordReveal");
+  var typed  = document.getElementById("wordInput").value;
+  var target = currentWord.word;
+  var matchLen = 0;
+  for (var i = 0; i < typed.length && i < target.length; i++) {
+    if (typed[i].toLowerCase() === target[i].toLowerCase()) matchLen++;
+    else break;
+  }
+  var hasMismatch = typed.length > 0 && matchLen < typed.length;
+  if (layer) {
+    if (!typed) {
+      layer.textContent = "";
+    } else {
+      var iHtml = "";
+      if (matchLen > 0)            iHtml += '<span style="color:#22c55e">' + esc(typed.substring(0, matchLen)) + '</span>';
+      if (typed.length > matchLen) iHtml += '<span style="color:#ef4444">' + esc(typed.substring(matchLen)) + '</span>';
+      layer.innerHTML = iHtml;
+    }
+  }
+  if (hasMismatch) {
+    var wrongLen = typed.length - matchLen;
+    var html = "";
+    if (matchLen > 0) html += '<span style="color:#22c55e">' + esc(target.substring(0, matchLen)) + '</span>';
+    html += '<span style="color:#ef4444">' + esc(target.substring(matchLen, matchLen + wrongLen)) + '</span>';
+    var rest = target.substring(matchLen + wrongLen);
+    if (rest) html += '<span>' + esc(rest) + '</span>';
+    reveal.innerHTML = html;
+    reveal.classList.add("show");
+  } else {
+    reveal.textContent = target;
+    if (hintLocked || hintOn) reveal.classList.add("show");
+    else reveal.classList.remove("show");
+  }
+}
+
 function showHint() {
   hintOn = true;
-  document.getElementById("wordReveal").classList.add("show");
   document.getElementById("hintBtn").classList.add("on");
+  updateWordReveal();
 }
 
 function hideHint() {
   if (hintLocked) return;
   hintOn = false;
-  document.getElementById("wordReveal").classList.remove("show");
   document.getElementById("hintBtn").classList.remove("on");
+  updateWordReveal();
 }
 
 function speakOnce() {
@@ -1615,15 +1703,22 @@ document.getElementById("wordInput").addEventListener("keydown", function(e) {
     if (trainMode === "practice") { showHint(); }
     else { checkAnswer(); }
   }
-  if (trainMode === "practice" && e.key === "Backspace") {
-    e.preventDefault();
-    this.value = "";
+  if (trainMode === "practice" && e.key === "Backspace" && !e.repeat) {
+    backspaceHoldTimer = setTimeout(function() {
+      document.getElementById("wordInput").value = "";
+      updateWordReveal();
+      backspaceHoldTimer = null;
+    }, 200);
   }
 });
 
 document.getElementById("wordInput").addEventListener("keyup", function(e) {
   if (trainMode === "practice" && e.key === "Enter") {
     hideHint();
+  }
+  if (e.key === "Backspace" && backspaceHoldTimer) {
+    clearTimeout(backspaceHoldTimer);
+    backspaceHoldTimer = null;
   }
 });
 
@@ -1641,6 +1736,7 @@ document.addEventListener("keydown", function(e) {
 
 document.getElementById("wordInput").addEventListener("input", function() {
   if (trainMode !== "practice" || !currentWord) return;
+  updateWordReveal();
   if (this.value.trim().toLowerCase() === currentWord.word.toLowerCase()) {
     document.getElementById("wordCard").classList.add("correct");
     document.getElementById("wordInput").classList.add("correct-input");
@@ -1675,6 +1771,7 @@ document.getElementById("wordInput").addEventListener("input", function() {
             document.getElementById("drillTimer").textContent = Math.floor((Date.now() - wordStartTime) / 1000) + "s";
           }, 200);
           document.getElementById("wordInput").value = "";
+          updateWordReveal();
           document.getElementById("wordInput").disabled = false;
           document.getElementById("wordInput").focus();
           document.getElementById("wordCard").classList.remove("correct");
@@ -1707,6 +1804,7 @@ document.getElementById("wordInput").addEventListener("input", function() {
         document.getElementById("feedback").className = "feedback";
         hintOn = false; hintLocked = false;
         document.getElementById("wordInput").value = "";
+        updateWordReveal();
         document.getElementById("wordInput").disabled = false;
         document.getElementById("wordInput").focus();
         if (loopSpeaking) {
