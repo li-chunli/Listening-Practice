@@ -770,6 +770,7 @@ let speakRate = 1.0;
 let trainMode = "exam"; // 'exam' | 'practice'
 let hintOn = false;
 let hintLocked = false;
+let hintUsed = false;
 let prevWord = null;
 let drillOn = false;
 let wordStartTime = 0;
@@ -778,7 +779,6 @@ let practiceRepeat = 3;
 let currentRepeatCount = 0;
 let drillTimerInterval = null;
 let shuffled = false;
-let backspaceHoldTimer = null;
 let originalWords = [];
 let originalIndex = 0;
 let shuffleSeen = [];
@@ -962,6 +962,7 @@ async function startTraining(mode) {
   trainMode = mode;
   hintOn = false;
   hintLocked = false;
+  hintUsed = false;
 
   // Read settings
   intervalSec = parseInt(document.getElementById("cfgInterval").value) || 5;
@@ -1097,6 +1098,7 @@ function showPracticeWord() {
   currentWord = words[currentIndex];
   hintOn = false;
   hintLocked = false;
+  hintUsed = false;
   wordStartTime = Date.now();
   // Drill timer
   if (drillTimerInterval) clearInterval(drillTimerInterval);
@@ -1344,6 +1346,7 @@ function toggleHint() {
 
 function showHint() {
   hintOn = true;
+  hintUsed = true;
   document.getElementById("hintBtn").classList.add("on");
   updateWordReveal();
 }
@@ -1757,22 +1760,16 @@ document.getElementById("wordInput").addEventListener("keydown", function(e) {
     if (trainMode === "practice") { showHint(); }
     else { checkAnswer(); }
   }
-  if (trainMode === "practice" && e.key === "Backspace" && !e.repeat) {
-    backspaceHoldTimer = setTimeout(function() {
-      document.getElementById("wordInput").value = "";
-      updateWordReveal();
-      backspaceHoldTimer = null;
-    }, 200);
+  if (trainMode === "practice" && e.key === "Backspace") {
+    e.preventDefault();
+    document.getElementById("wordInput").value = "";
+    updateWordReveal();
   }
 });
 
 document.getElementById("wordInput").addEventListener("keyup", function(e) {
   if (trainMode === "practice" && e.key === "Enter") {
     hideHint();
-  }
-  if (e.key === "Backspace" && backspaceHoldTimer) {
-    clearTimeout(backspaceHoldTimer);
-    backspaceHoldTimer = null;
   }
 });
 
@@ -1846,8 +1843,8 @@ document.getElementById("wordInput").addEventListener("input", function() {
     // Drill mode: check elapsed time
     if (drillOn) {
       var elapsed = (Date.now() - wordStartTime) / 1000;
-      if (elapsed > 5) {
-        document.getElementById("feedback").textContent = Math.floor(elapsed) + "s — 再来一次";
+      if (elapsed > 5 || hintUsed) {
+        document.getElementById("feedback").textContent = hintUsed ? (Math.floor(elapsed) + "s 提示 — 再来一次") : (Math.floor(elapsed) + "s — 再来一次");
         document.getElementById("feedback").className = "feedback";
         this.disabled = true;
         // Record to 错词表.txt
@@ -1865,6 +1862,7 @@ document.getElementById("wordInput").addEventListener("input", function() {
           document.getElementById("feedback").className = "feedback";
           hintOn = false;
           hintLocked = false;
+          hintUsed = false;
           wordStartTime = Date.now();
           if (drillTimerInterval) clearInterval(drillTimerInterval);
           document.getElementById("drillTimer").textContent = "0s";
@@ -1903,7 +1901,7 @@ document.getElementById("wordInput").addEventListener("input", function() {
         document.getElementById("hintBtn").classList.remove("on");
         document.getElementById("feedback").textContent = "";
         document.getElementById("feedback").className = "feedback";
-        hintOn = false; hintLocked = false;
+        hintOn = false; hintLocked = false; hintUsed = false;
         document.getElementById("wordInput").value = "";
         updateWordReveal();
         document.getElementById("wordInput").disabled = false;
