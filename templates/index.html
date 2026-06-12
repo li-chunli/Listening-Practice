@@ -1887,6 +1887,10 @@ document.getElementById("wordInput").addEventListener("input", function() {
       }
       document.getElementById("feedback").textContent = "✓ " + Math.floor(elapsed) + "s";
       document.getElementById("feedback").className = "feedback correct-msg";
+      // Remove from 错词表 when mastered in drill mode
+      if (selectedFile === "错词表.txt" && currentWord) {
+        fetch("/api/word?" + new URLSearchParams({file: selectedFile, word: currentWord.word, dir: currentDir}), {method: "DELETE"}).catch(function(){});
+      }
     }
     // Repeat logic (disabled in drill mode)
     currentRepeatCount++;
